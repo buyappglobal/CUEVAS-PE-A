@@ -303,6 +303,7 @@ export default function App() {
           <div className="hidden md:flex items-center gap-8 text-[11px] uppercase tracking-[0.15em] font-medium text-[#E5E2D9]/70">
             <a href="#descubre" className="hover:text-[#E5E2D9] transition-colors">Las Cuevas</a>
             <a href="#visitas" className="hover:text-[#E5E2D9] transition-colors">Visitas y Tarifas</a>
+            <a href="#alajar" className="hover:text-[#E5E2D9] transition-colors">Descubre Alájar</a>
             <button onClick={() => openBooking()} className="text-[#C4A484] hover:opacity-100 opacity-80 font-bold transition-opacity">
               Comprar Entradas
             </button>
@@ -481,6 +482,51 @@ export default function App() {
               </div>
             </FadeIn>
           </div>
+        </div>
+      </section>
+
+      {/* Descubre Alájar Section */}
+      <section id="alajar" className="py-24 px-6 border-t border-[#E5E2D9]/10">
+        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
+          <FadeIn>
+            <h2 className="text-4xl md:text-5xl font-serif mb-6 leading-[1.1] font-light italic">
+              Descubre <span className="text-[#C4A484] not-italic font-normal">Alájar</span>
+            </h2>
+            <p className="text-[18px] text-[#E5E2D9]/60 mb-8 leading-[1.6]">
+              En el corazón del Parque Natural Sierra de Aracena y Picos de Aroche se encuentra Alájar, uno de los municipios más singulares de la provincia de Huelva. Declarado Conjunto Histórico-Artístico, su trazado medieval y sus fachadas blancas custodiadas por el monumento natural de la Peña de Arias Montano, lo convierten en una parada obligatoria para el viajero.
+            </p>
+            <div className="space-y-4 mb-10">
+              <div className="flex items-start gap-4">
+                <Leaf className="w-5 h-5 text-[#C4A484] shrink-0 mt-1" />
+                <p className="text-sm text-[#E5E2D9]/70">Senderos naturales y rutas de senderismo de valor excepcional.</p>
+              </div>
+              <div className="flex items-start gap-4">
+                <Music className="w-5 h-5 text-[#C4A484] shrink-0 mt-1" />
+                <p className="text-sm text-[#E5E2D9]/70">Gastronomía tradicional centrada en el ibérico y la micología.</p>
+              </div>
+            </div>
+            
+            <a 
+              href="https://www.alajar.es/es/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-3 px-8 py-4 bg-[#C4A484] text-[#0D0D0B] rounded-none text-[12px] uppercase font-bold tracking-[0.1em] hover:bg-[#b09376] transition-all"
+            >
+              Descubre Alájar <ArrowRight className="w-4 h-4" />
+            </a>
+          </FadeIn>
+          
+          <FadeIn delay={0.2}>
+            <div className="aspect-video lg:aspect-square relative overflow-hidden group">
+              <img 
+                src="https://picsum.photos/seed/alajar/1200/1200" 
+                alt="Vistas de Alájar" 
+                className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-1000 grayscale-[30%]"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0D0D0B]/60 to-transparent"></div>
+            </div>
+          </FadeIn>
         </div>
       </section>
 
