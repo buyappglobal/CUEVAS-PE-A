@@ -56,15 +56,45 @@ export default function App() {
     setIsBookingModalOpen(true);
   };
 
-  const isWeekend = (dateStr: string) => {
+  // Safely parse YYYY-MM-DD date for cross-browser compatibility (avoids "Invalid Date" on some engines)
+  const getSafeDate = (dateStr: string) => {
+    if (!dateStr) return null;
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return null;
+    return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  };
+
+  // Holidays list (YYYY-MM-DD)
+  const NATIONAL_HOLIDAYS = [
+    '2024-01-01', '2024-01-06', '2024-03-28', '2024-03-29', '2024-05-01', '2024-08-15', '2024-10-12', '2024-11-01', '2024-12-06', '2024-12-08', '2024-12-25',
+    '2025-01-01', '2025-01-06', '2025-04-17', '2025-04-18', '2025-05-01', '2025-08-15', '2025-10-12', '2025-11-01', '2025-12-06', '2025-12-08', '2025-12-25',
+    '2026-01-01', '2026-01-06', '2026-04-02', '2026-04-03', '2026-05-01', '2026-08-15', '2026-10-12', '2026-11-01', '2026-12-06', '2026-12-08', '2026-12-25'
+  ];
+
+  const isHoliday = (dateStr: string) => NATIONAL_HOLIDAYS.includes(dateStr);
+
+  const isToday = (dateStr: string) => {
+    const today = new Date().toISOString().split('T')[0];
+    return dateStr === today;
+  };
+
+  const isSelectableDate = (dateStr: string) => {
     if (!dateStr) return false;
-    const day = new Date(dateStr).getDay();
+    // No online sales for today
+    if (isToday(dateStr)) return false;
+    return isWeekend(dateStr) || isHoliday(dateStr);
+  };
+
+  const isWeekend = (dateStr: string) => {
+    const d = getSafeDate(dateStr);
+    if (!d) return false;
+    const day = d.getDay();
     return day === 0 || day === 6; // 0 = Sun, 6 = Sat
   };
 
   const isBatSeason = (dateStr: string) => {
-    if (!dateStr) return false;
-    const d = new Date(dateStr);
+    const d = getSafeDate(dateStr);
+    if (!d) return false;
     const m = d.getMonth() + 1; // 1-12
     const day = d.getDate();
     
@@ -80,15 +110,21 @@ export default function App() {
   const calcReducedPrice = isWeekend(date) ? 10 : 8;
   const discount = isBatSeason(date) ? 2 : 0;
   
-  const finalAdultPrice = Math.max(0, calcAdultPrice - discount);
-  const finalReducedPrice = Math.max(0, calcReducedPrice - discount);
+  const finalAdultPrice = React.useMemo(() => Math.max(0, calcAdultPrice - discount), [calcAdultPrice, discount]);
+  const finalReducedPrice = React.useMemo(() => Math.max(0, calcReducedPrice - discount), [calcReducedPrice, discount]);
   
   // Dynamic capacities
-  const MAX_CAPACITY = 20;
+  const MAX_ONLINE_LIMIT = 20;
+  const TOTAL_CAPACITY = 30;
   const [slotCapacities, setSlotCapacities] = useState<Record<string, number>>({});
   
-  const totalPrice = (tickets.adult * finalAdultPrice) + (tickets.reduced * finalReducedPrice);
-  const totalSelectedTickets = Number(tickets.adult) + Number(tickets.reduced) + Number(tickets.childFree);
+  const totalPrice = React.useMemo(() => {
+    return Number((Number(tickets.adult) * finalAdultPrice) + (Number(tickets.reduced) * finalReducedPrice)) || 0;
+  }, [tickets.adult, tickets.reduced, finalAdultPrice, finalReducedPrice]);
+
+  const totalSelectedTickets = React.useMemo(() => {
+    return Number(tickets.adult) + Number(tickets.reduced) + Number(tickets.childFree);
+  }, [tickets.adult, tickets.reduced, tickets.childFree]);
   
   // Realtime fetching of capacity when date changes
   useEffect(() => {
@@ -110,7 +146,13 @@ export default function App() {
   }, [date, isBookingModalOpen]);
   
   const currentSlotBooked = (time && slotCapacities[time]) ? slotCapacities[time] : 0;
-  const remainingCapacity = Math.max(0, MAX_CAPACITY - currentSlotBooked);
+  
+  // Online limit logic: Only 20 allowed online, even if total is 30
+  const remainingOnlineLimit = Math.max(0, MAX_ONLINE_LIMIT - currentSlotBooked);
+  const remainingTotalLimit = Math.max(0, TOTAL_CAPACITY - currentSlotBooked);
+  
+  // The client can only buy up to 20 online, or whatever is left of the 30
+  const remainingCapacity = Math.min(remainingOnlineLimit, remainingTotalLimit);
   const canAddMore = totalSelectedTickets < remainingCapacity;
 
   const updateTicket = (type: 'adult'|'reduced'|'childFree', delta: number) => {
@@ -496,12 +538,12 @@ export default function App() {
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="bg-[#0D0D0B] text-[#E5E2D9] rounded-none w-full max-w-lg border border-[#E5E2D9]/10 relative shadow-2xl"
+              className="bg-[#0D0D0B] text-[#E5E2D9] rounded-none w-full max-w-lg border border-[#E5E2D9]/10 relative shadow-2xl flex flex-col max-h-[90vh]"
             >
-              <div className="p-8">
+              <div className="p-6 sm:p-8 overflow-y-auto custom-scrollbar">
                 <button 
                   onClick={() => setIsBookingModalOpen(false)}
-                  className="absolute right-6 top-6 w-8 h-8 flex items-center justify-center bg-[#E5E2D9]/5 hover:bg-[#E5E2D9]/10 border border-[#E5E2D9]/10 transition-colors"
+                  className="absolute right-6 top-6 w-8 h-8 flex items-center justify-center bg-[#E5E2D9]/5 hover:bg-[#E5E2D9]/10 border border-[#E5E2D9]/10 transition-colors z-20"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -528,23 +570,34 @@ export default function App() {
                       <div className="grid grid-cols-3 gap-2">
                         {['11:00', '12:30', '16:00'].map(t => {
                           const booked = slotCapacities[t] || 0;
-                          const free = Math.max(0, MAX_CAPACITY - booked);
+                          // Online capacity is 20, but cannot exceed 30 total
+                          const free = Math.max(0, Math.min(MAX_ONLINE_LIMIT - booked, TOTAL_CAPACITY - booked));
                           const isFull = free === 0;
+                          const isDateAllowed = isSelectableDate(date);
+                          const isDisabled = isFull || !isDateAllowed;
+                          
                           return (
                           <button
                             key={t}
                             type="button"
-                            disabled={isFull}
+                            disabled={isDisabled}
                             onClick={() => setTime(t)}
-                            className={`py-3 text-[12px] font-bold tracking-[0.1em] border rounded-none transition-all flex flex-col items-center justify-center gap-1 ${time === t ? 'bg-[#C4A484] text-[#0D0D0B] border-[#C4A484]' : isFull ? 'bg-red-900/10 border-red-900/20 text-red-500/50 cursor-not-allowed' : 'bg-transparent border-[#E5E2D9]/20 text-[#E5E2D9] hover:border-[#C4A484]/50 hover:text-[#C4A484]'}`}
+                            className={`py-3 text-[12px] font-bold tracking-[0.1em] border rounded-none transition-all flex flex-col items-center justify-center gap-1 ${time === t ? 'bg-[#C4A484] text-[#0D0D0B] border-[#C4A484]' : isDisabled ? 'bg-red-900/10 border-red-900/20 text-red-500/50 cursor-not-allowed' : 'bg-transparent border-[#E5E2D9]/20 text-[#E5E2D9] hover:border-[#C4A484]/50 hover:text-[#C4A484]'}`}
                           >
                             <div className="flex items-center gap-2"><Clock className="w-3 h-3" /> {t}</div>
-                            <span className="text-[9px] opacity-70 tracking-normal font-normal">{isFull ? 'Completo' : `${free} libres`}</span>
+                            <span className="text-[9px] opacity-70 tracking-normal font-normal">
+                              {!isDateAllowed ? 'Cerrado' : isFull ? 'Completo' : `${free} libres`}
+                            </span>
                           </button>
                         )})}
                       </div>
                     </div>
-                    {date && isBatSeason(date) && (
+                    {date && !isSelectableDate(date) && (
+                      <p className="text-[10px] text-red-400 mt-2 uppercase tracking-[0.05em] flex items-center gap-1">
+                        <Info className="w-3 h-3" /> {isToday(date) ? "No se realizan ventas online para el mismo día." : "Solo se realizan visitas Sábados, Domingos y Festivos Nacionales."}
+                      </p>
+                    )}
+                    {date && isSelectableDate(date) && isBatSeason(date) && (
                       <p className="text-[10px] text-[#C4A484] mt-2 uppercase tracking-[0.05em] flex items-center gap-1">
                         <Info className="w-3 h-3" /> Descuento de temporada (-2€) aplicado (Cierre Palacio Oscuro).
                       </p>

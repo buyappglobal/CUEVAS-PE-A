@@ -171,7 +171,7 @@ export default function AdminApp() {
   const capacities = slots.reduce((acc, slot) => {
     const slotRes = reservations.filter(r => r.time === slot);
     const booked = slotRes.reduce((sum, r) => sum + r.totalTickets, 0);
-    acc[slot] = { booked, remaining: 20 - booked };
+    acc[slot] = { booked, remaining: 30 - booked };
     return acc;
   }, {} as Record<string, { booked: number, remaining: number }>);
 
@@ -224,12 +224,12 @@ export default function AdminApp() {
               </div>
               <div className="flex items-end gap-2 relative z-10">
                 <span className="text-4xl font-light">{capacities[slot].booked}</span>
-                <span className="text-[#E5E2D9]/50 mb-1">/ 20 ocupadas</span>
+                <span className="text-[#E5E2D9]/50 mb-1">/ 30 ocupadas</span>
               </div>
               {/* Progress bar background */}
               <div 
                 className="absolute left-0 bottom-0 top-0 bg-[#C4A484]/5 z-0 transition-all"
-                style={{ width: `${(capacities[slot].booked / 20) * 100}%` }}
+                style={{ width: `${(capacities[slot].booked / 30) * 100}%` }}
               ></div>
             </div>
           ))}
@@ -290,13 +290,14 @@ export default function AdminApp() {
       {/* Manual Modal */}
       {showNewModal && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
-          <div className="bg-[#151515] border border-[#C4A484]/30 w-full max-w-md p-6 relative">
-            <button onClick={() => setShowNewModal(false)} className="absolute top-4 right-4 text-[#E5E2D9]/50 hover:text-white">
-              <X className="w-5 h-5" />
-            </button>
-            <h3 className="font-serif text-2xl mb-6">Nueva Venta Taquilla</h3>
-            
-            <form onSubmit={handleCreateManual} className="space-y-4">
+          <div className="bg-[#151515] border border-[#C4A484]/30 w-full max-w-md relative flex flex-col max-h-[90vh]">
+            <div className="p-6 overflow-y-auto">
+              <button onClick={() => setShowNewModal(false)} className="absolute top-4 right-4 text-[#E5E2D9]/50 hover:text-white z-20">
+                <X className="w-5 h-5" />
+              </button>
+              <h3 className="font-serif text-2xl mb-6">Nueva Venta Taquilla</h3>
+              
+              <form onSubmit={handleCreateManual} className="space-y-4">
               <div>
                 <label className="block text-xs uppercase text-[#E5E2D9]/50 mb-1">Horario</label>
                 <select 
@@ -346,6 +347,7 @@ export default function AdminApp() {
             </form>
           </div>
         </div>
+      </div>
       )}
     </div>
   );
