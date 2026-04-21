@@ -2,6 +2,9 @@ import express from 'express';
 import crypto from 'crypto';
 import path from 'path';
 import cors from 'cors';
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_fallback_so_it_doesnt_crash');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -96,7 +99,7 @@ app.post('/api/create-payment', (req, res) => {
 });
 
 // 2. Endpoint oculto (Webhook) donde Redsys confirmará si el pago fue exitoso
-app.post('/api/redsys-webhook', (req, res) => {
+app.post('/api/redsys-webhook', async (req, res) => {
   const { Ds_SignatureVersion, Ds_MerchantParameters, Ds_Signature } = req.body;
   
   if (!Ds_MerchantParameters) {
@@ -115,7 +118,60 @@ app.post('/api/redsys-webhook', (req, res) => {
     // Respuestas en 0000 al 0099 son autorizadas
     const responseCode = parseInt(params.Ds_Response, 10);
     if (responseCode >= 0 && responseCode <= 99) {
-      console.log('✅ PAGO CONFIRMADO. Aquí escribiríamos los tickets en la Base de Datos.');
+      console.log('✅ PAGO CONFIRMADO. Enviando ticket...');
+      
+      try {
+        // Redsys de vuelve el MerchantData codificado en la URL (a veces)
+        const merchantDataStr = decodeURIComponent(params.Ds_MerchantData);
+        const { date, time, customer, tickets } = JSON.parse(merchantDataStr);
+        
+        const totalTickets = (tickets.adult || 0) + (tickets.reduced || 0) + (tickets.childFree || 0);
+
+        const emailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #151515;">
+            <div style="background-color: #151515; padding: 30px; text-align: center;">
+              <h1 style="color: #C4A484; font-family: serif; margin: 0;">Cuevas de la Peña</h1>
+              <p style="color: rgba(229, 226, 217, 0.6); margin-top: 5px;">Arias Montano</p>
+            </div>
+            
+            <div style="padding: 30px; border: 1px solid #eee;">
+              <h2 style="font-family: serif; margin-top: 0;">¡Hola ${customer.name}!</h2>
+              <p>Tu pago ha sido confirmado correctamente. Aquí tienes los detalles de tu visita:</p>
+              
+              <div style="background-color: #f9f9f9; padding: 20px; border-left: 4px solid #C4A484; margin: 20px 0;">
+                <h3 style="margin-top: 0; color: #C4A484; text-transform: uppercase; font-size: 14px;">Detalles de la Reserva</h3>
+                <p><strong>Localizador:</strong> #${params.Ds_Order}</p>
+                <p><strong>Fecha:</strong> ${date}</p>
+                <p><strong>Hora:</strong> ${time}</p>
+                <p><strong>Total personas:</strong> ${totalTickets}</p>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;" />
+                <p style="font-size: 13px; color: #666; margin: 0;">
+                  Adultos: ${tickets.adult || 0} | Reducidas: ${tickets.reduced || 0} | Menores (Gratis): ${tickets.childFree || 0}
+                </p>
+              </div>
+
+              <p>Muestra este correo electrónico en tu teléfono móvil al guía cuando llegues a la entrada de la cueva.</p>
+              <p>Te recomendamos llegar 10 minutos antes de tu hora asignada.</p>
+              
+              <div style="text-align: center; margin-top: 40px; color: #999; font-size: 12px;">
+                <p>Si tienes alguna duda, ponte en contacto con taquilla@cuevas.com</p>
+              </div>
+            </div>
+          </div>
+        `;
+
+        // Send Email via Resend
+        await resend.emails.send({
+          from: 'Cuevas de la Peña <onboarding@resend.dev>', // Usamos el generico de pruebas de Resend
+          to: customer.email,
+          subject: '🎟️ Tus entradas confirmadas - Cuevas de la Peña',
+          html: emailHtml
+        });
+        
+        console.log(`✉️ Email enviado a: ${customer.email} correctamente.`);
+      } catch (err: any) {
+        console.error('⚠️ Error procesando el email post-pago:', err.message);
+      }
     } else {
       console.log('❌ PAGO DENEGADO por la tarjeta.');
     }
