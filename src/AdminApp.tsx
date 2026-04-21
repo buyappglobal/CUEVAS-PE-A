@@ -69,6 +69,15 @@ export default function AdminApp() {
     const total = newRes.tickets.adult + newRes.tickets.reduced + newRes.tickets.childFree;
     if (total === 0) return alert("Selecciona tickets");
 
+    // Check capacity locally first
+    const currentBooked = reservations
+      .filter(r => r.time === newRes.time)
+      .reduce((sum, r) => sum + (r.totalTickets || 0), 0);
+    
+    if (currentBooked + total > 30) {
+      return alert(`No hay suficiente espacio. Quedan ${30 - currentBooked} plazas libres.`);
+    }
+
     const payload = {
       date: dateFilter,
       time: newRes.time,
@@ -170,8 +179,8 @@ export default function AdminApp() {
   const slots = ['11:00', '12:30', '16:00'];
   const capacities = slots.reduce((acc, slot) => {
     const slotRes = reservations.filter(r => r.time === slot);
-    const booked = slotRes.reduce((sum, r) => sum + r.totalTickets, 0);
-    acc[slot] = { booked, remaining: 30 - booked };
+    const booked = slotRes.reduce((sum, r) => sum + (Number(r.totalTickets) || 0), 0);
+    acc[slot] = { booked, remaining: Math.max(0, 30 - booked) };
     return acc;
   }, {} as Record<string, { booked: number, remaining: number }>);
 
