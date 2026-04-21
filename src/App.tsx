@@ -382,8 +382,8 @@ export default function App() {
                   <Mountain className="w-6 h-6 text-[#C4A484]" />
                 </div>
                 <div>
-                  <h3 className="font-serif text-xl mb-2 text-[#E5E2D9]">Cueva de los Sillares</h3>
-                  <p className="text-sm text-[#E5E2D9]/60 leading-[1.6]">Asombrosa formación principal donde la fuerza del agua ha esculpido bóvedas naturales impresionantes.</p>
+                  <h3 className="font-serif text-xl mb-2 text-[#E5E2D9]">Sima de los caballos</h3>
+                  <p className="text-sm text-[#E5E2D9]/60 leading-[1.6]">Una impresionante cavidad vertical donde se pueden apreciar caprichosas formas geológicas.</p>
                 </div>
               </div>
               <div className="flex gap-4">
@@ -391,8 +391,17 @@ export default function App() {
                   <History className="w-6 h-6 text-[#C4A484]" />
                 </div>
                 <div>
-                  <h3 className="font-serif text-xl mb-2 text-[#E5E2D9]">El Palacio Oscuro</h3>
+                  <h3 className="font-serif text-xl mb-2 text-[#E5E2D9]">Palacio Oscuro</h3>
                   <p className="text-sm text-[#E5E2D9]/60 leading-[1.6]">Un recóndito pasaje que revela vestigios y el misticismo del baluarte rocoso que enamoró a Arias Montano.</p>
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <div className="shrink-0 mt-1">
+                  <Mountain className="w-6 h-6 text-[#C4A484]" />
+                </div>
+                <div>
+                  <h3 className="font-serif text-xl mb-2 text-[#E5E2D9]">Sillita del rey</h3>
+                  <p className="text-sm text-[#E5E2D9]/60 leading-[1.6]">Formación emblemática esculpida por el tiempo, testimonio del legado histórico de la Peña.</p>
                 </div>
               </div>
             </div>
@@ -600,7 +609,7 @@ export default function App() {
                     )}
                     {date && isSelectableDate(date) && isBatSeason(date) && (
                       <p className="text-[10px] text-[#C4A484] mt-2 uppercase tracking-[0.05em] flex items-center gap-1">
-                        <Info className="w-3 h-3" /> Descuento de temporada (-2€) aplicado (Cierre Palacio Oscuro).
+                        <Info className="w-3 h-3" /> Descuento de temporada aplicado (Cierre Palacio Oscuro).
                       </p>
                     )}
                     {date && isSpecialPriceDay && (
