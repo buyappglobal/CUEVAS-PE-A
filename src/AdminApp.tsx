@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { db, auth, loginWithGoogle, logout } from './firebase';
+import { db, auth, loginWithGoogle, loginWithEmail, logout } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, query, getDocs, doc, getDoc, setDoc, updateDoc, increment, where } from 'firebase/firestore';
 import { Calendar, Clock, Ticket, Users, FileText, CheckCircle, Plus, Trash2, LogOut, Mountain, X } from 'lucide-react';
@@ -12,6 +12,10 @@ export default function AdminApp() {
   // Data states
   const [reservations, setReservations] = useState<any[]>([]);
   const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]);
+  
+  // Login form states
+  const [emailInput, setEmailInput] = useState('taquilla@cuevas.com');
+  const [passwordInput, setPasswordInput] = useState('');
   
   // New manual reservation form
   const [showNewModal, setShowNewModal] = useState(false);
@@ -101,6 +105,15 @@ export default function AdminApp() {
     }
   };
 
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await loginWithEmail(emailInput, passwordInput);
+    } catch(err: any) {
+      alert("Error iniciando sesión. Comprueba que la contraseña es correcta y que has habilitado el proveedor de 'Correo y Contraseña' en Firebase Authentication.");
+    }
+  };
+
   if (loading) return <div className="min-h-screen bg-[#0D0D0B] text-white flex items-center justify-center">Cargando...</div>;
 
   if (!user || !isAdmin) {
@@ -109,12 +122,45 @@ export default function AdminApp() {
         <Mountain className="w-16 h-16 text-[#C4A484] mb-8" />
         <h1 className="text-3xl font-serif mb-2">Panel de Taquilla</h1>
         <p className="text-[#E5E2D9]/60 mb-8 max-w-sm text-center">Acceso restringido para el personal de las Cuevas de la Peña de Arias Montano.</p>
-        <button 
-          onClick={loginWithGoogle}
-          className="bg-[#C4A484] text-[#0D0D0B] px-8 py-3 font-bold uppercase tracking-widest text-sm hover:bg-[#b09376] transition-colors"
-        >
-          Acceder con Google
-        </button>
+        
+        <div className="bg-[#151515] p-6 border border-[#E5E2D9]/10 w-full max-w-sm mb-6">
+          <form onSubmit={handleEmailSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs uppercase text-[#E5E2D9]/50 mb-1">Usuario / Email</label>
+              <input 
+                type="email" 
+                value={emailInput}
+                onChange={e => setEmailInput(e.target.value)}
+                className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/20 p-3 text-[#E5E2D9] focus:outline-none focus:border-[#C4A484]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs uppercase text-[#E5E2D9]/50 mb-1">Contraseña</label>
+              <input 
+                type="password" 
+                value={passwordInput}
+                onChange={e => setPasswordInput(e.target.value)}
+                className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/20 p-3 text-[#E5E2D9] focus:outline-none focus:border-[#C4A484]"
+              />
+            </div>
+            <button 
+              type="submit"
+              className="w-full bg-[#E5E2D9]/5 hover:bg-[#E5E2D9]/10 border border-[#E5E2D9]/20 transition-colors py-3 font-bold uppercase tracking-widest text-xs"
+            >
+              Entrar
+            </button>
+          </form>
+        </div>
+
+        <div className="flex flex-col items-center gap-4">
+          <span className="text-xs uppercase tracking-wider text-[#E5E2D9]/30">O también</span>
+          <button 
+            onClick={loginWithGoogle}
+            className="bg-[#C4A484] text-[#0D0D0B] px-8 py-3 font-bold uppercase tracking-widest text-xs hover:bg-[#b09376] transition-colors"
+          >
+            Acceder con Google
+          </button>
+        </div>
       </div>
     );
   }

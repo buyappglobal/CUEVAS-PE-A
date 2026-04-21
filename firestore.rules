@@ -24,7 +24,7 @@ service cloud.firestore {
       // Anyone signed in can read admins to check if they are one
       allow read: if isSignedIn();
       // Bootstrapping: allow authorized emails to create their own admin document
-      allow write: if isSignedIn() && (request.auth.token.email == 'holasolonet@gmail.com' || request.auth.token.email == 'caballerovazquezrafael@gmail.com');
+      allow write: if isSignedIn() && (request.auth.token.email == 'holasolonet@gmail.com' || request.auth.token.email == 'caballerovazquezrafael@gmail.com' || request.auth.token.email == 'taquilla@cuevas.com');
     }
 
     match /reservations/{reservationId} {
