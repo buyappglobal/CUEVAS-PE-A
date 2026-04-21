@@ -3,11 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   MapPin, Calendar, Ticket, ChevronRight, Mountain, 
-  Leaf, History, Music, ArrowRight, Clock, Users, X, Info, Camera, Tent
+  Leaf, History, Music, ArrowRight, Clock, Users, X, Info, Camera, Tent,
+  CheckCircle, AlertCircle
 } from 'lucide-react';
 
 const FadeIn = ({ children, delay = 0, ...props }: { children: React.ReactNode, delay?: number, key?: React.Key }) => (
@@ -25,14 +26,173 @@ const FadeIn = ({ children, delay = 0, ...props }: { children: React.ReactNode, 
 export default function App() {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [selectedTour, setSelectedTour] = useState('');
+  
+  // Modal states for dynamic price calc
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
+  const [tickets, setTickets] = useState({ adult: 0, reduced: 0, childFree: 0 });
+  
+  const [isLoadingPayment, setIsLoadingPayment] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<'success' | 'error' | null>(null);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get('payment') === 'success') {
+      setPaymentStatus('success');
+      // Clean url
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (searchParams.get('payment') === 'error') {
+      setPaymentStatus('error');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   const openBooking = (tourName: string = '') => {
     setSelectedTour(tourName);
     setIsBookingModalOpen(true);
   };
 
+  const isWeekend = (dateStr: string) => {
+    if (!dateStr) return false;
+    const day = new Date(dateStr).getDay();
+    return day === 0 || day === 6; // 0 = Sun, 6 = Sat
+  };
+
+  const isBatSeason = (dateStr: string) => {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    const m = d.getMonth() + 1; // 1-12
+    const day = d.getDate();
+    
+    // March 30 to Sept 30
+    if (m > 3 && m < 9) return true;
+    if (m === 3 && day >= 30) return true;
+    if (m === 9 && day <= 30) return true;
+    return false;
+  };
+
+  // Calculations
+  const calcAdultPrice = isWeekend(date) ? 12 : 10;
+  const calcReducedPrice = isWeekend(date) ? 10 : 8;
+  const discount = isBatSeason(date) ? 2 : 0;
+  
+  const finalAdultPrice = Math.max(0, calcAdultPrice - discount);
+  const finalReducedPrice = Math.max(0, calcReducedPrice - discount);
+  
+  const totalPrice = (tickets.adult * finalAdultPrice) + (tickets.reduced * finalReducedPrice);
+  const totalSelectedTickets = tickets.adult + tickets.reduced + tickets.childFree;
+  const MAX_CAPACITY = 10;
+  
+  const canAddMore = totalSelectedTickets < MAX_CAPACITY;
+
+  const updateTicket = (type: 'adult'|'reduced'|'childFree', delta: number) => {
+    setTickets(prev => {
+      const newAmount = Math.max(0, prev[type] + delta);
+      // Prevenir superar el aforo máximo global
+      const currentOthers = Object.entries(prev)
+        .filter(([k]) => k !== type)
+        .reduce((sum, [_, v]) => sum + v, 0);
+      
+      if (currentOthers + newAmount > MAX_CAPACITY) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [type]: newAmount
+      };
+    });
+  };
+
+  const processPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!date || !time) {
+      alert("Por favor, seleccione fecha y horario.");
+      return;
+    }
+    if (totalPrice === 0 && tickets.childFree === 0) return;
+    
+    if (totalPrice === 0) {
+       alert("Debe seleccionar al menos una entrada de pago para procesar la reserva.");
+       return;
+    }
+
+    setIsLoadingPayment(true);
+    
+    try {
+      const response = await fetch('/api/create-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: totalPrice, tickets, date, time })
+      });
+      
+      const session = await response.json();
+      
+      if (!session.paramsBase64) {
+        throw new Error("No se pudo iniciar el pago");
+      }
+
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = session.url;
+
+      const versionInput = document.createElement('input');
+      versionInput.type = 'hidden';
+      versionInput.name = 'Ds_SignatureVersion';
+      versionInput.value = session.version;
+      form.appendChild(versionInput);
+
+      const paramsInput = document.createElement('input');
+      paramsInput.type = 'hidden';
+      paramsInput.name = 'Ds_MerchantParameters';
+      paramsInput.value = session.paramsBase64;
+      form.appendChild(paramsInput);
+
+      const signatureInput = document.createElement('input');
+      signatureInput.type = 'hidden';
+      signatureInput.name = 'Ds_Signature';
+      signatureInput.value = session.signature;
+      form.appendChild(signatureInput);
+
+      document.body.appendChild(form);
+      form.submit();
+    } catch (error) {
+      console.error(error);
+      alert("Error temporal comunicando con el servidor de pago.");
+      setIsLoadingPayment(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0D0D0B] font-sans text-[#E5E2D9] selection:bg-[#C4A484] selection:text-[#0D0D0B] overflow-x-hidden">
+      {/* Notificaciones de Pago */}
+      <AnimatePresence>
+        {paymentStatus && (
+          <motion.div 
+            initial={{ y: -100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -100, opacity: 0 }}
+            className={`fixed top-0 inset-x-0 z-[60] flex items-center justify-center p-4`}
+          >
+            <div className={`p-4 md:p-6 w-full max-w-lg border flex gap-4 ${paymentStatus === 'success' ? 'bg-[#151a14] border-[#C4A484]/40' : 'bg-[#1a1111] border-red-900/40'}`}>
+              <div className="shrink-0 mt-1">
+                 {paymentStatus === 'success' ? <CheckCircle className="w-6 h-6 text-[#C4A484]" /> : <AlertCircle className="w-6 h-6 text-red-500" />}
+              </div>
+              <div className="flex-grow">
+                <h3 className={`font-serif text-xl mb-1 ${paymentStatus === 'success' ? 'text-[#E5E2D9]' : 'text-red-100'}`}>
+                  {paymentStatus === 'success' ? '¡Reserva Completada!' : 'Pago Denegado'}
+                </h3>
+                <p className="text-sm opacity-70">
+                  {paymentStatus === 'success' ? 'Hemos procesado su pago correctamente. Revise su correo para los tickets digitales.' : 'La operación con tarjeta ha sido rechazada por el banco. Por favor, vuelva a intentarlo.'}
+                </p>
+              </div>
+              <button onClick={() => setPaymentStatus(null)} className="shrink-0 text-[#E5E2D9]/50 hover:text-[#E5E2D9]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Navbar */}
       <nav className="fixed top-0 inset-x-0 z-50 bg-[#0D0D0B]/90 backdrop-blur-md border-b border-[#E5E2D9]/10">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
@@ -159,7 +319,7 @@ export default function App() {
       <section id="visitas" className="py-24 bg-[#0D0D0B] border-t border-[#E5E2D9]/10">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center max-w-2xl mx-auto mb-16">
-            <h2 className="text-4xl md:text-[64px] font-serif mb-6 font-light leading-[1.1]">Visita las Cuevas</h2>
+            <h2 className="text-4xl md:text-[64px] font-serif mb-6 font-light leading-[1.1]">Tarifas y Entradas</h2>
             <p className="text-[#E5E2D9]/60 text-lg">Asegura tu plaza. El aforo al interior de las cuevas está estrictamente limitado para la conservación del espacio geológico.</p>
           </div>
           
@@ -169,18 +329,17 @@ export default function App() {
               <div className="bg-[#E5E2D9]/[0.02] border border-[#E5E2D9]/[0.05] hover:border-[#C4A484]/50 transition-colors group h-full flex flex-col p-8 md:p-10 rounded-none">
                 <div className="mb-6 flex justify-between items-start">
                   <div className="bg-[#0D0D0B] border border-[#E5E2D9]/10 w-12 h-12 rounded-none flex items-center justify-center">
-                    <MapPin className="w-5 h-5 text-[#C4A484]" />
+                    <Ticket className="w-5 h-5 text-[#C4A484]" />
                   </div>
-                  <span className="text-[10px] uppercase tracking-[0.1em] font-medium text-[#C4A484]">Aprox. 45 min</span>
                 </div>
-                <h3 className="font-serif text-3xl mb-4 text-[#E5E2D9]">Visita Guiada Oficial</h3>
+                <h3 className="font-serif text-3xl mb-4 text-[#E5E2D9]">Entrada General y Reducida</h3>
                 <p className="text-[#E5E2D9]/60 text-sm leading-[1.6] mb-8 flex-grow">
-                  Recorrido interpretado por las galerías recientemente habilitadas. Un experto desvelará los secretos en la formación de las estalactitas, la cueva de los Sillares y su importancia histórica. Incluye casco e iluminación adaptada.
+                  Acceso a las cuevas acondicionadas. Tarifa general desde 10€. Tarifa reducida (desde 8€) disponible para mayores de 65, tarjeta Andalucía Junta 65, diversidad funcional, Carnet Joven y niños (4-12 años). Formato gratuito para menores de 4. <br/><br/>
+                  <span className="italic text-[11px]">* Los fines de semana y festivos se aplica un suplemento de +2€. Descuento temporal (-2€) aplicado en temporada de reposo de murciélagos.</span>
                 </p>
                 <div className="flex items-center justify-between mt-auto pt-6 border-t border-[#E5E2D9]/10">
                   <div className="flex flex-col">
-                    <span className="text-3xl font-serif text-[#E5E2D9]">8€</span>
-                    <span className="text-[10px] uppercase tracking-[0.1em] text-[#E5E2D9]/50 mt-1">Tarifa General</span>
+                    <span className="text-3xl font-serif text-[#E5E2D9]">Desde 8€</span>
                   </div>
                   <button onClick={() => openBooking('Visita Guiada a las Cuevas')} className="py-3 px-6 bg-[#E5E2D9]/5 hover:bg-[#C4A484] hover:text-[#0D0D0B] text-[#C4A484] flex items-center gap-2 text-[11px] uppercase tracking-[0.1em] font-bold transition-colors">
                     Adquirir Entrada
@@ -196,19 +355,18 @@ export default function App() {
                   <div className="bg-[#0D0D0B] border border-[#E5E2D9]/10 w-12 h-12 rounded-none flex items-center justify-center">
                     <Users className="w-5 h-5 text-[#C4A484]" />
                   </div>
-                  <span className="text-[10px] uppercase tracking-[0.1em] font-medium text-[#C4A484]">Grupos +15 pax</span>
+                  <span className="text-[10px] uppercase tracking-[0.1em] font-medium text-[#C4A484]">Grupos +20 pax</span>
                 </div>
                 <h3 className="font-serif text-3xl mb-4 text-[#E5E2D9]">Grupos y Colegios</h3>
                 <p className="text-[#E5E2D9]/60 text-sm leading-[1.6] mb-8 flex-grow">
-                  Experiencia adaptada para agrupaciones, excursiones y centros educacionales. Reserva de franjas horarias exclusivas y tarifa reducida garantizada. (Necesaria solicitud previa).
+                  Experiencia adaptada para agrupaciones, escuelas y empresas de turismo con convenio. Reserva de franjas horarias exclusivas y tarifa reducida en bloque para grupos de más de 20 estudiantes. (Es obligatoria la reserva previa por parte del Centro o AMPA).
                 </p>
                 <div className="flex items-center justify-between mt-auto pt-6 border-t border-[#E5E2D9]/10">
                   <div className="flex flex-col">
-                    <span className="text-3xl font-serif text-[#E5E2D9]">6€</span>
-                    <span className="text-[10px] uppercase tracking-[0.1em] text-[#E5E2D9]/50 mt-1">Tarifa Reducida</span>
+                    <span className="text-3xl font-serif text-[#E5E2D9]">Consultar</span>
                   </div>
                   <button onClick={() => openBooking('Visita de Grupos')} className="py-3 px-6 bg-transparent border border-[#E5E2D9]/20 hover:border-[#C4A484] hover:text-[#C4A484] text-[#E5E2D9] flex items-center gap-2 text-[11px] uppercase tracking-[0.1em] font-bold transition-colors">
-                    Reserva Especial
+                    Solicitar Reserva
                   </button>
                 </div>
               </div>
@@ -294,39 +452,112 @@ export default function App() {
                 <span className="text-[#C4A484] text-[10px] uppercase tracking-[0.2em] mb-2 block">Reserva de Entradas</span>
                 <h2 className="font-serif text-3xl mb-6 pr-8 font-light">Confirma tu visita</h2>
                 
-                <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); alert("¡Reserva completada con éxito! (Simulación)"); setIsBookingModalOpen(false); }}>
+                <form className="space-y-6" onSubmit={processPayment}>
                   <div>
-                    <label className="block text-[10px] uppercase tracking-[0.1em] text-[#E5E2D9]/50 mb-2">Entrada Seleccionada</label>
-                    <select className="w-full bg-[#E5E2D9]/5 border border-[#E5E2D9]/10 rounded-none px-4 py-3 text-[#E5E2D9] focus:outline-none focus:border-[#C4A484]" defaultValue={selectedTour}>
-                      <option value="" className="bg-[#0D0D0B]">Seleccionar entrada...</option>
-                      <option value="Visita Guiada a las Cuevas" className="bg-[#0D0D0B]">Visita Guiada Oficial (8€)</option>
-                      <option value="Visita de Grupos" className="bg-[#0D0D0B]">Reserva de Grupos y Colegios (6€)</option>
-                    </select>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[10px] uppercase tracking-[0.1em] text-[#E5E2D9]/50 mb-2">Fecha</label>
+                    <label className="block text-[10px] uppercase tracking-[0.1em] text-[#E5E2D9]/50 mb-2">Fecha y Horario de Visita</label>
+                    <div className="grid grid-cols-1 gap-4 mb-4">
+                      {/* Date */}
                       <div className="relative">
                         <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#C4A484]" />
-                        <input type="date" className="w-full bg-[#E5E2D9]/5 border border-[#E5E2D9]/10 rounded-none pl-10 pr-4 py-3 text-[#E5E2D9] focus:outline-none focus:border-[#C4A484] [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert" required />
+                        <input 
+                          type="date" 
+                          value={date}
+                          onChange={(e) => setDate(e.target.value)}
+                          className="w-full bg-[#E5E2D9]/5 border border-[#E5E2D9]/10 rounded-none pl-10 pr-4 py-3 text-[#E5E2D9] focus:outline-none focus:border-[#C4A484] [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert" 
+                          required 
+                        />
+                      </div>
+                      {/* Time Slots */}
+                      <div className="grid grid-cols-3 gap-2">
+                        {['11:00', '12:30', '16:00'].map(t => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => setTime(t)}
+                            className={`py-3 text-[12px] font-bold tracking-[0.1em] border rounded-none transition-all flex items-center justify-center gap-2 ${time === t ? 'bg-[#C4A484] text-[#0D0D0B] border-[#C4A484]' : 'bg-transparent border-[#E5E2D9]/20 text-[#E5E2D9] hover:border-[#C4A484]/50 hover:text-[#C4A484]'}`}
+                          >
+                            <Clock className="w-3 h-3" /> {t}
+                          </button>
+                        ))}
                       </div>
                     </div>
-                    <div>
-                      <label className="block text-[10px] uppercase tracking-[0.1em] text-[#E5E2D9]/50 mb-2">Asistentes</label>
-                      <div className="relative">
-                        <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#C4A484]" />
-                        <input type="number" min="1" max="10" defaultValue="2" className="w-full bg-[#E5E2D9]/5 border border-[#E5E2D9]/10 rounded-none pl-10 pr-4 py-3 text-[#E5E2D9] focus:outline-none focus:border-[#C4A484]" required />
+                    {date && isBatSeason(date) && (
+                      <p className="text-[10px] text-[#C4A484] mt-2 uppercase tracking-[0.05em] flex items-center gap-1">
+                        <Info className="w-3 h-3" /> Descuento de temporada (-2€) aplicado (Cierre Palacio Oscuro).
+                      </p>
+                    )}
+                    {date && isWeekend(date) && (
+                      <p className="text-[10px] text-white/50 mt-2 uppercase tracking-[0.05em] flex items-center gap-1">
+                        <Info className="w-3 h-3" /> Tarifa de fin de semana aplicada.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-4 pt-2">
+                    <div className="flex items-center justify-between border-b border-[#E5E2D9]/10 pb-2 mb-4">
+                      <label className="block text-[10px] uppercase tracking-[0.1em] text-[#E5E2D9]/50">Selección de Entradas</label>
+                      <span className={`text-[10px] uppercase tracking-[0.1em] font-medium ${MAX_CAPACITY - totalSelectedTickets === 0 ? 'text-red-400' : 'text-[#C4A484]'}`}>
+                        {MAX_CAPACITY - totalSelectedTickets} restantes / {MAX_CAPACITY} aforo
+                      </span>
+                    </div>
+                    
+                    {/* Adult Entry */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[#E5E2D9] text-sm font-serif">Adulto General</p>
+                        <p className="text-[10px] text-[#E5E2D9]/50">{finalAdultPrice}€ por persona</p>
+                      </div>
+                      <div className="flex items-center gap-3 bg-[#E5E2D9]/5 border border-[#E5E2D9]/10 p-1">
+                        <button type="button" onClick={() => updateTicket('adult', -1)} className="w-8 h-8 flex items-center justify-center text-[#E5E2D9]/50 hover:text-[#C4A484]">-</button>
+                        <span className="w-4 text-center text-sm font-medium">{tickets.adult}</span>
+                        <button type="button" disabled={!canAddMore} onClick={() => updateTicket('adult', 1)} className="w-8 h-8 flex items-center justify-center text-[#E5E2D9]/50 hover:text-[#C4A484] disabled:opacity-20">+</button>
                       </div>
                     </div>
+
+                    {/* Reduced Entry */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[#E5E2D9] text-sm font-serif">Entrada Reducida <span className="text-[#C4A484]">*</span></p>
+                        <p className="text-[10px] text-[#E5E2D9]/50">{finalReducedPrice}€ por persona</p>
+                      </div>
+                      <div className="flex items-center gap-3 bg-[#E5E2D9]/5 border border-[#E5E2D9]/10 p-1">
+                        <button type="button" onClick={() => updateTicket('reduced', -1)} className="w-8 h-8 flex items-center justify-center text-[#E5E2D9]/50 hover:text-[#C4A484]">-</button>
+                        <span className="w-4 text-center text-sm font-medium">{tickets.reduced}</span>
+                        <button type="button" disabled={!canAddMore} onClick={() => updateTicket('reduced', 1)} className="w-8 h-8 flex items-center justify-center text-[#E5E2D9]/50 hover:text-[#C4A484] disabled:opacity-20">+</button>
+                      </div>
+                    </div>
+
+                    {/* Infant Entry */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[#E5E2D9] text-sm font-serif">Menores de 4 años</p>
+                        <p className="text-[10px] text-[#E5E2D9]/50">Gratis (acompañados)</p>
+                      </div>
+                      <div className="flex items-center gap-3 bg-[#E5E2D9]/5 border border-[#E5E2D9]/10 p-1">
+                        <button type="button" onClick={() => updateTicket('childFree', -1)} className="w-8 h-8 flex items-center justify-center text-[#E5E2D9]/50 hover:text-[#C4A484]">-</button>
+                        <span className="w-4 text-center text-sm font-medium">{tickets.childFree}</span>
+                        <button type="button" disabled={!canAddMore} onClick={() => updateTicket('childFree', 1)} className="w-8 h-8 flex items-center justify-center text-[#E5E2D9]/50 hover:text-[#C4A484] disabled:opacity-20">+</button>
+                      </div>
+                    </div>
+                    <p className="text-[9px] text-[#E5E2D9]/40 mt-4 leading-relaxed">
+                      * Tarifa reducida válida para: Mayores de 65 años, tarjeta «Andalucía Junta 65», discapacidad &gt; 33%, Carnet Joven y niños de 4 a 12 años. Se requerirá acreditación en el acceso.
+                    </p>
                   </div>
 
                   <div className="border-t border-[#E5E2D9]/10 pt-6 mt-6">
-                    <button type="submit" className="w-full bg-[#C4A484] text-[#0D0D0B] rounded-none py-4 text-[12px] font-bold tracking-[0.1em] uppercase hover:bg-[#b09376] transition-colors active:scale-[0.98]">
-                      Proceder al Pago Seguro
+                    <div className="flex items-end justify-between mb-6">
+                      <span className="text-[11px] uppercase tracking-[0.1em] text-[#E5E2D9]/70">Total a Pagar</span>
+                      <span className="text-4xl font-serif text-[#C4A484] leading-none">{totalPrice.toFixed(2)}€</span>
+                    </div>
+                    <button 
+                      type="submit" 
+                      disabled={isLoadingPayment || (totalPrice === 0 && tickets.childFree === 0)}
+                      className="w-full bg-[#C4A484] disabled:opacity-50 disabled:cursor-not-allowed text-[#0D0D0B] rounded-none py-4 text-[12px] font-bold tracking-[0.1em] uppercase hover:bg-[#b09376] transition-colors active:scale-[0.98] flex items-center justify-center"
+                    >
+                      {isLoadingPayment ? <span className="animate-pulse">Cargando pasarela...</span> : 'Continuar a Redsys'}
                     </button>
                     <p className="text-center text-[10px] uppercase tracking-[0.1em] text-[#E5E2D9]/50 mt-4 flex items-center justify-center gap-1">
-                      <Info className="w-3 h-3" /> Sin cargos ocultos. Cancelación 48H.
+                      <Info className="w-3 h-3" /> Plataforma de pago 100% segura.
                     </p>
                   </div>
                 </form>
