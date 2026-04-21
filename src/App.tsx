@@ -268,13 +268,13 @@ export default function App() {
       <section className="relative pt-20 h-[90vh] min-h-[600px] flex items-center justify-center">
         <div className="absolute inset-0 z-0 overflow-hidden">
           <img 
-            src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=2000&q=80" 
+            src="https://solonet.es/wp-content/uploads/2026/04/DSC08546-scaled.jpg" 
             alt="Interior de las Cuevas" 
-            className="w-full h-full object-cover opacity-60"
+            className="w-full h-full object-cover opacity-85"
             referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-[#0D0D0B]/60"></div>
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0D0D0B] via-[#0D0D0B]/40 to-transparent"></div>
+          <div className="absolute inset-0 bg-[#0D0D0B]/30"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0D0D0B] via-[#0D0D0B]/20 to-transparent"></div>
         </div>
         
         <div className="relative z-10 text-center px-6 max-w-4xl mx-auto mt-12">
@@ -355,7 +355,7 @@ export default function App() {
           <div className="relative">
             <div className="aspect-[4/5] rounded-none border border-[#E5E2D9]/10 bg-[#E5E2D9]/[0.02] overflow-hidden">
               <img 
-                src="https://images.unsplash.com/photo-1499540633125-484965b60031?auto=format&fit=crop&w=1000&q=80" 
+                src="https://solonet.es/wp-content/uploads/2026/04/DSC08544-scaled.jpg" 
                 alt="Formaciones rocosas interiores" 
                 className="w-full h-full object-cover hover:scale-105 transition-transform duration-1000 opacity-90 grayscale-[50%]"
                 referrerPolicy="no-referrer"
