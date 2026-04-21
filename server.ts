@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import path from 'path';
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 // Webhooks urlencoded payloads sometimes
@@ -46,7 +46,7 @@ function mac256(data: string, key: Buffer) {
 // 1. Endpoint para iniciar el pago
 app.post('/api/create-payment', (req, res) => {
   try {
-    const { amount, tickets } = req.body;
+    const { amount, tickets, date, time, customer } = req.body;
     
     // Importe multiplicado x 100 para ser céntimos (exigencia de Redsys)
     const amountStr = Math.round(amount * 100).toString();
@@ -58,10 +58,8 @@ app.post('/api/create-payment', (req, res) => {
     console.log(`🎟️ Iniciando reserva - Pedido: ${orderId} | Total: ${amount}€`);
 
     // El servidor puede recibir esta URL dependiendo de si estamos en dev o deploy,
-    // en este entorno la request viene con su propio origin.
-    const host = req.get('host');
-    const protocol = req.protocol || 'https';
-    // Nota: Como estamos tras un proxy a veces el origin es útil
+    const host = req.get('x-forwarded-host') || req.get('host');
+    const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
     const baseUrl = `${protocol}://${host}`;
 
     const params = {
@@ -74,7 +72,7 @@ app.post('/api/create-payment', (req, res) => {
       DS_MERCHANT_MERCHANTURL: `${baseUrl}/api/redsys-webhook`, // Callback URL en segundo plano
       DS_MERCHANT_URLOK: `${baseUrl}?payment=success`, // URL de retorno si éxito
       DS_MERCHANT_URLKO: `${baseUrl}?payment=error`,   // URL de retorno si fallo
-      DS_MERCHANT_MERCHANTDATA: JSON.stringify(tickets) // Pasamos la config de tickets para control interno
+      DS_MERCHANT_MERCHANTDATA: JSON.stringify({ tickets, date, time, customer }) // Pasamos la config de tickets para control interno
     };
 
     const paramsBase64 = Buffer.from(JSON.stringify(params), 'utf-8').toString('base64');
@@ -131,13 +129,13 @@ app.post('/api/redsys-webhook', (req, res) => {
 // --- Middleware de Aplicación Web (Vite + React) ---
 
 async function startServer() {
-  if (process.env.NODE_ENV !== 'production') {
+  if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else {
+  } else if (!process.env.VERCEL) {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
@@ -145,9 +143,14 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`✅ Server (Express + Vite) up and running on http://0.0.0.0:${PORT}`);
-  });
+  // En Vercel no llamamos a listen, exportamos la app para que Serverless functions escuche.
+  if (!process.env.VERCEL) {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`✅ Server up and running on http://0.0.0.0:${PORT}`);
+    });
+  }
 }
 
 startServer();
+
+export default app;

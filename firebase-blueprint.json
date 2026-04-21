@@ -1,0 +1,55 @@
+{
+  "entities": {
+    "Reservation": {
+      "title": "Reservation",
+      "description": "A booking reservation for the caves",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerEmail": { "type": "string" },
+        "amount": { "type": "number" },
+        "source": { "type": "string", "enum": ["online", "manual"] },
+        "status": { "type": "string", "enum": ["pending", "paid", "confirmed"] },
+        "tickets": { "type": "object" },
+        "totalTickets": { "type": "number" },
+        "createdAt": { "type": "number" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["date", "time", "source", "status", "totalTickets"]
+    },
+    "Slot": {
+      "title": "Slot",
+      "description": "Aggregated capacity for a time slot",
+      "type": "object",
+      "properties": {
+        "bookedCount": { "type": "number" },
+        "date": { "type": "string" },
+        "time": { "type": "string" }
+      }
+    },
+    "AdminConfig": {
+      "title": "AdminConfig",
+      "description": "List of admin users",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/reservations/{reservationId}": {
+      "schema": { "$ref": "#/entities/Reservation" },
+      "description": "Store all manual and online tickets"
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/AdminConfig" },
+      "description": "Authorized admins"
+    },
+    "/slots/{slotId}": {
+      "schema": { "$ref": "#/entities/Slot" },
+      "description": "Public capacity counters"
+    }
+  }
+}

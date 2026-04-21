@@ -1,0 +1,60 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // An admin is anyone who successfully logs in with Google in our case?
+    // Actually, to make it secure, we require them to be in the admins collection.
+    // For bootstrapping, we'll allow any signed-in user to act as admin FOR THE PROTOTYPE,
+    // OR we can securely boot by checking email.
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    match /admins/{adminId} {
+      // Anyone signed in can read admins to check if they are one
+      allow read: if isSignedIn();
+      // Bootstrapping: allow authorized emails to create their own admin document
+      allow write: if isSignedIn() && (request.auth.token.email == 'holasolonet@gmail.com' || request.auth.token.email == 'caballerovazquezrafael@gmail.com');
+    }
+
+    match /reservations/{reservationId} {
+      allow read: if isAdmin();
+      allow update, delete: if isAdmin();
+      
+      // Allow public to create a reservation if it's correct
+      allow create: if isAdmin() || (
+        request.resource.data.keys().hasAll(['date', 'time', 'source', 'status', 'totalTickets', 'createdAt', 'customerName', 'customerEmail', 'tickets']) &&
+        request.resource.data.source == 'online' &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.totalTickets > 0 &&
+        request.resource.data.totalTickets <= 20
+      );
+    }
+    
+    match /slots/{slotId} {
+      // Public can read capacities
+      allow read: if true;
+      
+      // Admins can do anything
+      allow update, delete: if isAdmin();
+      allow create: if isAdmin() || true; // Let public create the slot counter if it doesn't exist yet
+      
+      // Public can increment bookedCount
+      allow update: if isAdmin() || (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bookedCount']) &&
+        request.resource.data.bookedCount > resource.data.bookedCount &&
+        request.resource.data.bookedCount <= 20
+      );
+    }
+  }
+}

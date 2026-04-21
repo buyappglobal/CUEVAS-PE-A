@@ -5,10 +5,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { db } from './firebase';
+import { collection, doc, setDoc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { 
   MapPin, Calendar, Ticket, ChevronRight, Mountain, 
   Leaf, History, Music, ArrowRight, Clock, Users, X, Info, Camera, Tent,
-  CheckCircle, AlertCircle
+  CheckCircle, AlertCircle, User, Mail
 } from 'lucide-react';
 
 const FadeIn = ({ children, delay = 0, ...props }: { children: React.ReactNode, delay?: number, key?: React.Key }) => (
@@ -31,6 +33,8 @@ export default function App() {
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [tickets, setTickets] = useState({ adult: 0, reduced: 0, childFree: 0 });
+  const [customerName, setCustomerName] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
   
   const [isLoadingPayment, setIsLoadingPayment] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'success' | 'error' | null>(null);
@@ -79,11 +83,35 @@ export default function App() {
   const finalAdultPrice = Math.max(0, calcAdultPrice - discount);
   const finalReducedPrice = Math.max(0, calcReducedPrice - discount);
   
-  const totalPrice = (tickets.adult * finalAdultPrice) + (tickets.reduced * finalReducedPrice);
-  const totalSelectedTickets = tickets.adult + tickets.reduced + tickets.childFree;
-  const MAX_CAPACITY = 10;
+  // Dynamic capacities
+  const MAX_CAPACITY = 20;
+  const [slotCapacities, setSlotCapacities] = useState<Record<string, number>>({});
   
-  const canAddMore = totalSelectedTickets < MAX_CAPACITY;
+  const totalPrice = (tickets.adult * finalAdultPrice) + (tickets.reduced * finalReducedPrice);
+  const totalSelectedTickets = Number(tickets.adult) + Number(tickets.reduced) + Number(tickets.childFree);
+  
+  // Realtime fetching of capacity when date changes
+  useEffect(() => {
+    if (!date) return;
+    const fetchCapacities = async () => {
+      const caps: Record<string, number> = {};
+      const times = ['11:00', '12:30', '16:00'];
+      for (const t of times) {
+         try {
+           const snap = await getDoc(doc(db, 'slots', `${date}_${t}`));
+           caps[t] = snap.exists() ? snap.data().bookedCount : 0;
+         } catch(e) {
+           caps[t] = 0;
+         }
+      }
+      setSlotCapacities(caps);
+    };
+    fetchCapacities();
+  }, [date, isBookingModalOpen]);
+  
+  const currentSlotBooked = (time && slotCapacities[time]) ? slotCapacities[time] : 0;
+  const remainingCapacity = Math.max(0, MAX_CAPACITY - currentSlotBooked);
+  const canAddMore = totalSelectedTickets < remainingCapacity;
 
   const updateTicket = (type: 'adult'|'reduced'|'childFree', delta: number) => {
     setTickets(prev => {
@@ -91,9 +119,9 @@ export default function App() {
       // Prevenir superar el aforo máximo global
       const currentOthers = Object.entries(prev)
         .filter(([k]) => k !== type)
-        .reduce((sum, [_, v]) => sum + v, 0);
+        .reduce((sum, [_, v]) => sum + (v as number), 0);
       
-      if (currentOthers + newAmount > MAX_CAPACITY) {
+      if (currentOthers + newAmount > remainingCapacity) {
         return prev;
       }
       return {
@@ -119,10 +147,36 @@ export default function App() {
     setIsLoadingPayment(true);
     
     try {
+      // 1. Crear documento pendiente en Firestore
+      const orderIdObj = String(Date.now());
+      const resRef = doc(collection(db, 'reservations'));
+      await setDoc(resRef, {
+         date,
+         time,
+         customerName,
+         customerEmail,
+         tickets,
+         totalTickets: totalSelectedTickets,
+         amount: totalPrice,
+         source: 'online',
+         status: 'pending',
+         createdAt: Date.now()
+      });
+
+      // 2. Incrementar la reserva en los Slots para bloquear inmediatamente los asientos
+      const slotRef = doc(db, 'slots', `${date}_${time}`);
+      const slotSnap = await getDoc(slotRef);
+      if (slotSnap.exists()) {
+        await updateDoc(slotRef, { bookedCount: increment(totalSelectedTickets) });
+      } else {
+        await setDoc(slotRef, { date, time, bookedCount: totalSelectedTickets });
+      }
+
+      // 3. Obtener Link de Redsys
       const response = await fetch('/api/create-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: totalPrice, tickets, date, time })
+        body: JSON.stringify({ amount: totalPrice, tickets, date, time, customer: { name: customerName, email: customerEmail } })
       });
       
       const session = await response.json();
@@ -469,16 +523,22 @@ export default function App() {
                       </div>
                       {/* Time Slots */}
                       <div className="grid grid-cols-3 gap-2">
-                        {['11:00', '12:30', '16:00'].map(t => (
+                        {['11:00', '12:30', '16:00'].map(t => {
+                          const booked = slotCapacities[t] || 0;
+                          const free = Math.max(0, MAX_CAPACITY - booked);
+                          const isFull = free === 0;
+                          return (
                           <button
                             key={t}
                             type="button"
+                            disabled={isFull}
                             onClick={() => setTime(t)}
-                            className={`py-3 text-[12px] font-bold tracking-[0.1em] border rounded-none transition-all flex items-center justify-center gap-2 ${time === t ? 'bg-[#C4A484] text-[#0D0D0B] border-[#C4A484]' : 'bg-transparent border-[#E5E2D9]/20 text-[#E5E2D9] hover:border-[#C4A484]/50 hover:text-[#C4A484]'}`}
+                            className={`py-3 text-[12px] font-bold tracking-[0.1em] border rounded-none transition-all flex flex-col items-center justify-center gap-1 ${time === t ? 'bg-[#C4A484] text-[#0D0D0B] border-[#C4A484]' : isFull ? 'bg-red-900/10 border-red-900/20 text-red-500/50 cursor-not-allowed' : 'bg-transparent border-[#E5E2D9]/20 text-[#E5E2D9] hover:border-[#C4A484]/50 hover:text-[#C4A484]'}`}
                           >
-                            <Clock className="w-3 h-3" /> {t}
+                            <div className="flex items-center gap-2"><Clock className="w-3 h-3" /> {t}</div>
+                            <span className="text-[9px] opacity-70 tracking-normal font-normal">{isFull ? 'Completo' : `${free} libres`}</span>
                           </button>
-                        ))}
+                        )})}
                       </div>
                     </div>
                     {date && isBatSeason(date) && (
@@ -496,8 +556,8 @@ export default function App() {
                   <div className="space-y-4 pt-2">
                     <div className="flex items-center justify-between border-b border-[#E5E2D9]/10 pb-2 mb-4">
                       <label className="block text-[10px] uppercase tracking-[0.1em] text-[#E5E2D9]/50">Selección de Entradas</label>
-                      <span className={`text-[10px] uppercase tracking-[0.1em] font-medium ${MAX_CAPACITY - totalSelectedTickets === 0 ? 'text-red-400' : 'text-[#C4A484]'}`}>
-                        {MAX_CAPACITY - totalSelectedTickets} restantes / {MAX_CAPACITY} aforo
+                      <span className={`text-[10px] uppercase tracking-[0.1em] font-medium ${remainingCapacity - totalSelectedTickets === 0 ? 'text-red-400' : 'text-[#C4A484]'}`}>
+                        {remainingCapacity - totalSelectedTickets} restantes de {remainingCapacity} disponibles
                       </span>
                     </div>
                     
@@ -539,9 +599,37 @@ export default function App() {
                         <button type="button" disabled={!canAddMore} onClick={() => updateTicket('childFree', 1)} className="w-8 h-8 flex items-center justify-center text-[#E5E2D9]/50 hover:text-[#C4A484] disabled:opacity-20">+</button>
                       </div>
                     </div>
-                    <p className="text-[9px] text-[#E5E2D9]/40 mt-4 leading-relaxed">
+                    <p className="text-[9px] text-[#E5E2D9]/40 mt-4 mb-8 leading-relaxed">
                       * Tarifa reducida válida para: Mayores de 65 años, tarjeta «Andalucía Junta 65», discapacidad &gt; 33%, Carnet Joven y niños de 4 a 12 años. Se requerirá acreditación en el acceso.
                     </p>
+                  </div>
+
+                  <div className="space-y-4 pt-2">
+                    <label className="block text-[10px] uppercase tracking-[0.1em] text-[#E5E2D9]/50 mb-4 border-b border-[#E5E2D9]/10 pb-2">Datos Personales</label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#C4A484]" />
+                        <input 
+                          type="text" 
+                          placeholder="Nombre y apellidos" 
+                          required 
+                          value={customerName} 
+                          onChange={e => setCustomerName(e.target.value)} 
+                          className="w-full bg-[#E5E2D9]/5 border border-[#E5E2D9]/10 rounded-none pl-10 pr-4 py-3 text-[#E5E2D9] focus:outline-none focus:border-[#C4A484] placeholder:text-[#E5E2D9]/30" 
+                        />
+                      </div>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#C4A484]" />
+                        <input 
+                          type="email" 
+                          placeholder="Correo electrónico" 
+                          required 
+                          value={customerEmail} 
+                          onChange={e => setCustomerEmail(e.target.value)} 
+                          className="w-full bg-[#E5E2D9]/5 border border-[#E5E2D9]/10 rounded-none pl-10 pr-4 py-3 text-[#E5E2D9] focus:outline-none focus:border-[#C4A484] placeholder:text-[#E5E2D9]/30" 
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="border-t border-[#E5E2D9]/10 pt-6 mt-6">
