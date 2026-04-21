@@ -1,11 +1,12 @@
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
 import crypto from 'crypto';
 import path from 'path';
+import cors from 'cors';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(cors());
 app.use(express.json());
 // Webhooks urlencoded payloads sometimes
 app.use(express.urlencoded({ extended: true })); 
@@ -130,6 +131,7 @@ app.post('/api/redsys-webhook', (req, res) => {
 
 async function startServer() {
   if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
