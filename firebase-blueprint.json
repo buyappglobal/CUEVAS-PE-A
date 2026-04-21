@@ -15,7 +15,8 @@
         "tickets": { "type": "object" },
         "totalTickets": { "type": "number" },
         "createdAt": { "type": "number" },
-        "ownerId": { "type": "string" }
+        "ownerId": { "type": "string" },
+        "localizador": { "type": "string" }
       },
       "required": ["date", "time", "source", "status", "totalTickets"]
     },

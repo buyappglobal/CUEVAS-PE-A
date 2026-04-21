@@ -33,7 +33,7 @@ service cloud.firestore {
       
       // Allow public to create a reservation if it's correct
       allow create: if isAdmin() || (
-        request.resource.data.keys().hasAll(['date', 'time', 'source', 'status', 'totalTickets', 'createdAt', 'customerName', 'customerEmail', 'tickets']) &&
+        request.resource.data.keys().hasAll(['date', 'time', 'source', 'status', 'totalTickets', 'createdAt', 'customerName', 'customerEmail', 'tickets', 'localizador']) &&
         request.resource.data.source == 'online' &&
         request.resource.data.status == 'pending' &&
         request.resource.data.totalTickets > 0 &&

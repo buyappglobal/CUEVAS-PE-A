@@ -50,15 +50,11 @@ function mac256(data: string, key: Buffer) {
 // 1. Endpoint para iniciar el pago
 app.post('/api/create-payment', (req, res) => {
   try {
-    const { amount, tickets, date, time, customer } = req.body;
+    const { amount, tickets, date, time, customer, orderId } = req.body;
     
     // Importe multiplicado x 100 para ser céntimos (exigencia de Redsys)
     const amountStr = Math.round(amount * 100).toString();
     
-    // Generador de ID de pedido único (Redsys requiere mínimo 4 dígitos iniciales)
-    // Usamos el timestamp actual en segundos completado a 12 caracteres.
-    const orderId = String(Math.floor(Date.now() / 1000)).substring(0, 12).padStart(12, '0');
-
     console.log(`🎟️ Iniciando reserva - Pedido: ${orderId} | Total: ${amount}€`);
 
     // El servidor puede recibir esta URL dependiendo de si estamos en dev o deploy,

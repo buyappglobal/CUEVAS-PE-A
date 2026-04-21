@@ -148,7 +148,9 @@ export default function App() {
     
     try {
       // 1. Crear documento pendiente en Firestore
-      const orderIdObj = String(Date.now());
+      // Generador de ID de pedido único para alinear con Redsys (12 chars)
+      const orderId = String(Math.floor(Date.now() / 1000)).substring(0, 12).padStart(12, '0');
+
       const resRef = doc(collection(db, 'reservations'));
       await setDoc(resRef, {
          date,
@@ -160,6 +162,7 @@ export default function App() {
          amount: totalPrice,
          source: 'online',
          status: 'pending',
+         localizador: orderId,
          createdAt: Date.now()
       });
 
@@ -176,7 +179,7 @@ export default function App() {
       const response = await fetch('/api/create-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: totalPrice, tickets, date, time, customer: { name: customerName, email: customerEmail } })
+        body: JSON.stringify({ orderId, amount: totalPrice, tickets, date, time, customer: { name: customerName, email: customerEmail } })
       });
       
       const session = await response.json();

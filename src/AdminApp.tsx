@@ -79,6 +79,7 @@ export default function AdminApp() {
       amount: 0, // In taquilla, you might not track € here, or calculate it.
       source: 'manual',
       status: 'confirmed',
+      localizador: 'MAN' + String(Math.floor(Date.now() / 1000)).substring(4, 12),
       createdAt: Date.now(),
       ownerId: user?.uid
     };
@@ -240,6 +241,7 @@ export default function AdminApp() {
             <thead className="bg-[#0D0D0B] text-[#E5E2D9]/50 uppercase tracking-wider text-[10px] border-b border-[#E5E2D9]/10">
               <tr>
                 <th className="p-4">Hora</th>
+                <th className="p-4">Localizador</th>
                 <th className="p-4">Cliente</th>
                 <th className="p-4">Tickets (A/R/I)</th>
                 <th className="p-4">Total</th>
@@ -250,7 +252,7 @@ export default function AdminApp() {
             <tbody>
               {reservations.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-[#E5E2D9]/40 italic">
+                  <td colSpan={7} className="p-8 text-center text-[#E5E2D9]/40 italic">
                     No hay reservas registradas en esta fecha.
                   </td>
                 </tr>
@@ -258,6 +260,7 @@ export default function AdminApp() {
                 reservations.sort((a,b) => a.time.localeCompare(b.time)).map(r => (
                   <tr key={r.id} className="border-b border-[#E5E2D9]/5 hover:bg-[#E5E2D9]/5 transition-colors">
                     <td className="p-4 font-mono text-[#C4A484]">{r.time}</td>
+                    <td className="p-4 font-mono text-xs text-[#E5E2D9]/50">#{r.localizador || 'N/A'}</td>
                     <td className="p-4">
                       <div>{r.customerName}</div>
                       <div className="text-[10px] text-[#E5E2D9]/40">{r.customerEmail}</div>
