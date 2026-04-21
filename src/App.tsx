@@ -106,8 +106,9 @@ export default function App() {
   };
 
   // Calculations
-  const calcAdultPrice = isWeekend(date) ? 12 : 10;
-  const calcReducedPrice = isWeekend(date) ? 10 : 8;
+  const isSpecialPriceDay = isWeekend(date) || isHoliday(date);
+  const calcAdultPrice = isSpecialPriceDay ? 12 : 10;
+  const calcReducedPrice = isSpecialPriceDay ? 10 : 8;
   const discount = isBatSeason(date) ? 2 : 0;
   
   const finalAdultPrice = React.useMemo(() => Math.max(0, calcAdultPrice - discount), [calcAdultPrice, discount]);
@@ -602,9 +603,9 @@ export default function App() {
                         <Info className="w-3 h-3" /> Descuento de temporada (-2€) aplicado (Cierre Palacio Oscuro).
                       </p>
                     )}
-                    {date && isWeekend(date) && (
+                    {date && isSpecialPriceDay && (
                       <p className="text-[10px] text-white/50 mt-2 uppercase tracking-[0.05em] flex items-center gap-1">
-                        <Info className="w-3 h-3" /> Tarifa de fin de semana aplicada.
+                        <Info className="w-3 h-3" /> Tarifa de fin de semana / festivo aplicada.
                       </p>
                     )}
                   </div>
