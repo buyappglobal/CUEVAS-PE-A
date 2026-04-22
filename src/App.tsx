@@ -9,7 +9,7 @@ import { db } from './firebase';
 import { collection, doc, setDoc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { 
   MapPin, Calendar, Ticket, ChevronRight, Mountain, 
-  Leaf, History, Music, ArrowRight, Clock, Users, X, Info, Camera, Tent,
+  Leaf, History, Utensils, ArrowRight, Clock, Users, X, Info, Camera, Tent,
   CheckCircle, AlertCircle, User, Mail
 } from 'lucide-react';
 
@@ -331,7 +331,7 @@ export default function App() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="text-[#C4A484] uppercase tracking-[0.3em] text-[12px] font-medium mb-6"
           >
-            Apertura al Público · Sierra de Aracena
+            Apertura al Público · Sierra de Huelva
           </motion.p>
           <motion.h1 
             initial={{ opacity: 0, scale: 0.95 }}
@@ -501,7 +501,7 @@ export default function App() {
                 <p className="text-sm text-[#E5E2D9]/70">Senderos naturales y rutas de senderismo de valor excepcional.</p>
               </div>
               <div className="flex items-start gap-4">
-                <Music className="w-5 h-5 text-[#C4A484] shrink-0 mt-1" />
+                <Utensils className="w-5 h-5 text-[#C4A484] shrink-0 mt-1" />
                 <p className="text-sm text-[#E5E2D9]/70">Gastronomía tradicional centrada en el ibérico y la micología.</p>
               </div>
             </div>
