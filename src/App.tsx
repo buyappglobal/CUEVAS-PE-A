@@ -479,13 +479,9 @@ export default function App() {
                 <p className="text-[#E5E2D9]/60 text-sm leading-[1.6] mb-8 flex-grow">
                   Experiencia adaptada para agrupaciones, escuelas y empresas de turismo con convenio. Reserva de franjas horarias exclusivas y tarifa reducida en bloque para grupos de más de 20 estudiantes. (Es obligatoria la reserva previa por parte del Centro o AMPA).
                 </p>
-                <div className="flex items-center justify-between mt-auto pt-6 border-t border-[#E5E2D9]/10">
-                  <div className="flex flex-col">
-                    <span className="text-3xl font-serif text-[#E5E2D9]">Consultar</span>
-                  </div>
-                  <button onClick={() => openBooking('Visita de Grupos')} className="py-3 px-6 bg-transparent border border-[#E5E2D9]/20 hover:border-[#C4A484] hover:text-[#C4A484] text-[#E5E2D9] flex items-center gap-2 text-[11px] uppercase tracking-[0.1em] font-bold transition-colors">
-                    Solicitar Reserva
-                  </button>
+                <div className="flex flex-col items-center justify-center mt-auto pt-6 border-t border-[#E5E2D9]/10 text-center">
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-[#C4A484] mb-2 font-bold">Solicitar Reserva</span>
+                  <span className="text-[#E5E2D9] text-base font-serif lowercase tracking-wide">info@cuevasdealajar.es</span>
                 </div>
               </div>
             </FadeIn>
