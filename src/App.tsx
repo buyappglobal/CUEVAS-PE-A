@@ -116,8 +116,9 @@ export default function App() {
   const calcReducedPrice = isSpecialPriceDay ? 10 : 8;
   const discount = isBatSeason(date) ? 2 : 0;
   
-  const finalAdultPrice = React.useMemo(() => Math.max(0, calcAdultPrice - discount), [calcAdultPrice, discount]);
-  const finalReducedPrice = React.useMemo(() => Math.max(0, calcReducedPrice - discount), [calcReducedPrice, discount]);
+  // Defensive calculation to prevent NaN or unexpected zeros
+  const finalAdultPrice = Math.max(0, (calcAdultPrice || 0) - (discount || 0));
+  const finalReducedPrice = Math.max(0, (calcReducedPrice || 0) - (discount || 0));
   
   // Dynamic capacities
   const MAX_ONLINE_LIMIT = 20;
@@ -125,11 +126,13 @@ export default function App() {
   const [slotCapacities, setSlotCapacities] = useState<Record<string, number>>({});
   
   const totalPrice = React.useMemo(() => {
-    return Number((Number(tickets.adult) * finalAdultPrice) + (Number(tickets.reduced) * finalReducedPrice)) || 0;
+    const adultNum = Number(tickets.adult) || 0;
+    const reducedNum = Number(tickets.reduced) || 0;
+    return (adultNum * finalAdultPrice) + (reducedNum * finalReducedPrice) || 0;
   }, [tickets.adult, tickets.reduced, finalAdultPrice, finalReducedPrice]);
 
   const totalSelectedTickets = React.useMemo(() => {
-    return Number(tickets.adult) + Number(tickets.reduced) + Number(tickets.childFree);
+    return (Number(tickets.adult) || 0) + (Number(tickets.reduced) || 0) + (Number(tickets.childFree) || 0);
   }, [tickets.adult, tickets.reduced, tickets.childFree]);
   
   // Realtime fetching of capacity when date changes
@@ -548,8 +551,8 @@ export default function App() {
             </p>
             <div className="flex gap-4">
                {/* Redes sociales */}
-               <div className="w-10 h-10 rounded-none border border-[#E5E2D9]/20 flex items-center justify-center hover:bg-[#E5E2D9]/10 hover:text-[#E5E2D9] transition-colors cursor-pointer text-sm normal-case">Ig</div>
-               <div className="w-10 h-10 rounded-none border border-[#E5E2D9]/20 flex items-center justify-center hover:bg-[#E5E2D9]/10 hover:text-[#E5E2D9] transition-colors cursor-pointer text-sm normal-case">Fb</div>
+               <a href="https://www.instagram.com/aytoalajar/" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-none border border-[#E5E2D9]/20 flex items-center justify-center hover:bg-[#E5E2D9]/10 hover:text-[#E5E2D9] transition-colors cursor-pointer text-sm normal-case">Ig</a>
+               <a href="https://www.facebook.com/aytoalajar" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-none border border-[#E5E2D9]/20 flex items-center justify-center hover:bg-[#E5E2D9]/10 hover:text-[#E5E2D9] transition-colors cursor-pointer text-sm normal-case">Fb</a>
             </div>
           </div>
           
