@@ -10,7 +10,7 @@ import { collection, doc, setDoc, getDoc, updateDoc, increment } from 'firebase/
 import { 
   MapPin, Calendar, Ticket, ChevronRight, Mountain, 
   Leaf, History, Utensils, ArrowRight, Clock, Users, X, Info, Camera, Tent,
-  CheckCircle, AlertCircle, User, Mail
+  CheckCircle, AlertCircle, User, Mail, Phone
 } from 'lucide-react';
 
 const FadeIn = ({ children, delay = 0, ...props }: { children: React.ReactNode, delay?: number, key?: React.Key }) => (
@@ -27,6 +27,7 @@ const FadeIn = ({ children, delay = 0, ...props }: { children: React.ReactNode, 
 
 export default function App() {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
   const [selectedTour, setSelectedTour] = useState('');
   
   // Modal states for dynamic price calc
@@ -551,10 +552,9 @@ export default function App() {
           <div>
             <h4 className="text-[#C4A484] mb-6">Información</h4>
             <ul className="space-y-4 text-[#E5E2D9]/40">
-              <li><a href="#" className="hover:text-[#E5E2D9] transition-colors">Cómo llegar</a></li>
-              <li><a href="#" className="hover:text-[#E5E2D9] transition-colors">Normas del recinto</a></li>
-              <li><a href="#" className="hover:text-[#E5E2D9] transition-colors">Accesibilidad</a></li>
-              <li><a href="#" className="hover:text-[#E5E2D9] transition-colors">Contacto</a></li>
+              <li><a href="https://maps.app.goo.gl/fGMEYWZvqwkUCWcN7" target="_blank" rel="noopener noreferrer" className="hover:text-[#E5E2D9] transition-colors">Cómo llegar</a></li>
+              <li><button onClick={() => alert("Normas del recinto:\n- Prohibido fumar.\n- No tocar las formaciones.\n- Seguir las indicaciones del guía.\n- Calzado cómodo obligatorio.")} className="hover:text-[#E5E2D9] transition-colors text-left uppercase">Normas del recinto</button></li>
+              <li><button onClick={() => setIsAccessModalOpen(true)} className="hover:text-[#E5E2D9] transition-colors text-left uppercase">Accesibilidad</button></li>
             </ul>
           </div>
 
@@ -563,11 +563,25 @@ export default function App() {
             <ul className="space-y-4 text-[#E5E2D9]/40">
               <li className="flex items-start gap-3">
                 <MapPin className="w-4 h-4 shrink-0" />
-                <span className="normal-case text-[12px]">Ermita Reina de los Ángeles, 21340 Alájar, Huelva</span>
+                <div className="flex flex-col gap-1">
+                  <span className="normal-case text-[12px] font-bold text-[#E5E2D9]/60">Ayuntamiento de Alájar</span>
+                  <span className="normal-case text-[12px]">Plaza España nº3, 21340 Alájar (Huelva)</span>
+                  <span className="text-[10px]">CIF: P2100100C</span>
+                </div>
               </li>
-              <li className="flex items-center gap-3">
-                <Info className="w-4 h-4 shrink-0" />
-                <span className="normal-case text-[12px]">info@peñamontano.es</span>
+              <li className="flex items-start gap-3">
+                <Phone className="w-4 h-4 shrink-0 mt-1" />
+                <div className="flex flex-col gap-1">
+                  <span className="normal-case text-[12px]">959 12 57 10 / 671 844 875</span>
+                  <span className="text-[10px] text-[#E5E2D9]/30">Atención: Rafa Caballero Santa Olalla</span>
+                </div>
+              </li>
+              <li className="flex items-start gap-3">
+                <Mail className="w-4 h-4 shrink-0" />
+                <div className="flex flex-col">
+                  <span className="normal-case text-[12px]">info@cuevasdealajar.es</span>
+                  <span className="normal-case text-[12px]">secretaria@alajar.es</span>
+                </div>
               </li>
             </ul>
           </div>
@@ -762,6 +776,55 @@ export default function App() {
                   </div>
                 </form>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Accessibility Modal */}
+      <AnimatePresence>
+        {isAccessModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-[#0D0D0B]/80 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-[#0D0D0B] text-[#E5E2D9] rounded-none w-full max-w-md border border-[#E5E2D9]/10 relative shadow-2xl p-8"
+            >
+              <button 
+                onClick={() => setIsAccessModalOpen(false)} 
+                className="absolute top-4 right-4 text-[#E5E2D9]/30 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              <div className="flex items-center gap-3 mb-6 text-[#C4A484]">
+                <Info className="w-6 h-6" />
+                <h3 className="font-serif text-2xl tracking-wide uppercase">Accesibilidad</h3>
+              </div>
+              
+              <div className="space-y-4 text-sm text-[#E5E2D9]/60 leading-relaxed font-light">
+                <p>
+                  Las cuevas son un espacio natural con terreno irregular, humedad y tramos con escalones. Por su propia morfología geológica, el recorrido no es accesible en su totalidad para personas con movilidad reducida severa, sillas de ruedas o carritos de bebé.
+                </p>
+                <ul className="space-y-2 list-disc pl-4 italic">
+                  <li>Se recomienda el uso de mochilas portabebés.</li>
+                  <li>Es obligatorio el uso de calzado cómodo y cerrado (deportivo o montaña).</li>
+                  <li>No recomendado para personas con problemas respiratorios o cardíacos graves debido a la humedad y el esfuerzo físico moderado.</li>
+                </ul>
+              </div>
+              
+              <button 
+                onClick={() => setIsAccessModalOpen(false)}
+                className="w-full mt-8 bg-[#C4A484]/10 border border-[#C4A484]/20 text-[#C4A484] py-3 text-[10px] uppercase font-bold tracking-widest hover:bg-[#C4A484] hover:text-[#0D0D0B] transition-all"
+              >
+                Entendido
+              </button>
             </motion.div>
           </motion.div>
         )}
