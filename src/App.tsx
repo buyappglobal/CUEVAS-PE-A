@@ -304,10 +304,13 @@ export default function App() {
       {/* Navbar */}
       <nav className="fixed top-0 inset-x-0 z-50 bg-[#0D0D0B]/90 backdrop-blur-md border-b border-[#E5E2D9]/10">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <button 
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="flex items-center gap-2 hover:opacity-70 transition-opacity cursor-pointer group"
+          >
             <Mountain className="w-6 h-6 text-[#C4A484]" />
             <span className="font-serif text-xl tracking-[0.05em] uppercase">Peña Arias Montano</span>
-          </div>
+          </button>
           <div className="hidden md:flex items-center gap-8 text-[11px] uppercase tracking-[0.15em] font-medium text-[#E5E2D9]/70">
             <a href="#descubre" className="hover:text-[#E5E2D9] transition-colors">Las Cuevas</a>
             <a href="#visitas" className="hover:text-[#E5E2D9] transition-colors">Visitas y Tarifas</a>
