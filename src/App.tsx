@@ -10,7 +10,7 @@ import { collection, doc, setDoc, getDoc, updateDoc, increment } from 'firebase/
 import { 
   MapPin, Calendar, Ticket, ChevronRight, Mountain, 
   Leaf, History, Utensils, ArrowRight, Clock, Users, X, Info, Camera, Tent,
-  CheckCircle, AlertCircle, User, Mail, Phone
+  CheckCircle, AlertCircle, User, Mail, Phone, FileText, Download
 } from 'lucide-react';
 
 const FadeIn = ({ children, delay = 0, ...props }: { children: React.ReactNode, delay?: number, key?: React.Key }) => (
@@ -28,6 +28,10 @@ const FadeIn = ({ children, delay = 0, ...props }: { children: React.ReactNode, 
 export default function App() {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
+  const [isNormasModalOpen, setIsNormasModalOpen] = useState(false);
+  const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+  const [isFullOrdinanceOpen, setIsFullOrdinanceOpen] = useState(false);
   const [selectedTour, setSelectedTour] = useState('');
   
   // Modal states for dynamic price calc
@@ -553,7 +557,7 @@ export default function App() {
             <h4 className="text-[#C4A484] mb-6">Información</h4>
             <ul className="space-y-4 text-[#E5E2D9]/40">
               <li><a href="https://maps.app.goo.gl/fGMEYWZvqwkUCWcN7" target="_blank" rel="noopener noreferrer" className="hover:text-[#E5E2D9] transition-colors">Cómo llegar</a></li>
-              <li><button onClick={() => alert("Normas del recinto:\n- Prohibido fumar.\n- No tocar las formaciones.\n- Seguir las indicaciones del guía.\n- Calzado cómodo obligatorio.")} className="hover:text-[#E5E2D9] transition-colors text-left uppercase">Normas del recinto</button></li>
+              <li><button onClick={() => setIsNormasModalOpen(true)} className="hover:text-[#E5E2D9] transition-colors text-left uppercase">Normas del recinto</button></li>
               <li><button onClick={() => setIsAccessModalOpen(true)} className="hover:text-[#E5E2D9] transition-colors text-left uppercase">Accesibilidad</button></li>
             </ul>
           </div>
@@ -589,8 +593,8 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-6 mt-16 pt-8 border-t border-[#E5E2D9]/10 text-[10px] uppercase tracking-[0.1em] opacity-40 flex flex-col sm:flex-row justify-between items-center">
           <p>© {new Date().getFullYear()} Cuevas Peña Arias Montano. Todos los derechos reservados.</p>
           <div className="flex gap-4 mt-4 sm:mt-0">
-            <a href="#" className="hover:text-[#E5E2D9]">Aviso Legal</a>
-            <a href="#" className="hover:text-[#E5E2D9]">Privacidad</a>
+            <button onClick={() => setIsLegalModalOpen(true)} className="hover:text-[#E5E2D9] uppercase uppercase tracking-[0.1em]">Aviso Legal</button>
+            <button onClick={() => setIsPrivacyModalOpen(true)} className="hover:text-[#E5E2D9] uppercase uppercase tracking-[0.1em]">Privacidad</button>
           </div>
         </div>
       </footer>
@@ -825,6 +829,208 @@ export default function App() {
               >
                 Entendido
               </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Normas Modal */}
+      <AnimatePresence>
+        {isNormasModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-[#0D0D0B]/80 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-[#0D0D0B] text-[#E5E2D9] rounded-none w-full max-w-lg border border-[#E5E2D9]/10 relative shadow-2xl p-8 max-h-[90vh] overflow-y-auto custom-scrollbar"
+            >
+              <button onClick={() => setIsNormasModalOpen(false)} className="absolute top-4 right-4 text-[#E5E2D9]/30 hover:text-white"><X className="w-5 h-5" /></button>
+              <div className="flex items-center gap-3 mb-6 text-[#C4A484] uppercase tracking-wider">
+                <FileText className="w-6 h-6" />
+                <h3 className="font-serif text-2xl tracking-wide uppercase">Normas de la Visita</h3>
+              </div>
+              <div className="space-y-4 text-xs text-[#E5E2D9]/70 leading-relaxed uppercase tracking-wider font-light">
+                <p className="font-bold border-b border-[#E5E2D9]/10 pb-2">Ordenanza Municipal del Excmo. Ayuntamiento de Alájar</p>
+                <ul className="space-y-3 list-none">
+                  <li className="flex gap-3"><CheckCircle className="w-4 h-4 text-[#C4A484] shrink-0" /> Uso obligatorio de casco protector facilitado por la organización.</li>
+                  <li className="flex gap-3"><CheckCircle className="w-4 h-4 text-[#C4A484] shrink-0" /> Obligatorio calzado cerrado, cómodo y con suela antideslizante.</li>
+                  <li className="flex gap-3"><AlertCircle className="w-4 h-4 text-red-500 shrink-0" /> Prohibido tocar o extraer formaciones geológicas, flora o fauna.</li>
+                  <li className="flex gap-3"><AlertCircle className="w-4 h-4 text-red-500 shrink-0" /> Prohibido el acceso con animales (excepto perros guía).</li>
+                  <li className="flex gap-3"><AlertCircle className="w-4 h-4 text-red-500 shrink-0" /> Prohibido fumar, comer o introducir líquidos en la cavidad.</li>
+                  <li className="flex gap-3"><AlertCircle className="w-4 h-4 text-red-500 shrink-0" /> Prohibido el uso de trípodes o iluminación artificial sin permiso.</li>
+                  <li className="flex gap-3"><AlertCircle className="w-4 h-4 text-red-500 shrink-0" /> Queda prohibida la toma de fotografías en el interior de las cuevas sin autorización previa.</li>
+                </ul>
+                
+                <div className="mt-8 pt-6 border-t border-[#E5E2D9]/10 space-y-3">
+                  <button 
+                    onClick={() => setIsFullOrdinanceOpen(true)}
+                    className="flex items-center justify-center gap-2 w-full py-4 bg-[#C4A484] text-[#0D0D0B] transition-all font-bold text-[10px] uppercase tracking-widest"
+                  >
+                    <FileText className="w-4 h-4" /> Leer Ordenanza Completa
+                  </button>
+                  <a 
+                    href="/ordenanza.pdf" 
+                    target="_blank" 
+                    className="flex items-center justify-center gap-2 w-full py-4 bg-[#E5E2D9]/5 border border-[#E5E2D9]/10 text-[#E5E2D9] hover:bg-[#C4A484] hover:text-[#0D0D0B] transition-all font-bold text-[10px] uppercase tracking-widest"
+                  >
+                    <Download className="w-4 h-4" /> Descargar Ordenanza (PDF)
+                  </a>
+                  <p className="text-[9px] text-[#E5E2D9]/30 mt-3 text-center normal-case italic">
+                    Publicado en el Boletín Oficial de la Provincia
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Aviso Legal Modal */}
+      <AnimatePresence>
+        {isLegalModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-[#0D0D0B]/80 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-[#0D0D0B] text-[#E5E2D9] rounded-none w-full max-w-lg border border-[#E5E2D9]/10 relative shadow-2xl p-8"
+            >
+              <button onClick={() => setIsLegalModalOpen(false)} className="absolute top-4 right-4 text-[#E5E2D9]/30 hover:text-white"><X className="w-5 h-5" /></button>
+              <h3 className="font-serif text-2xl tracking-wide uppercase mb-6 text-[#C4A484]">Aviso Legal</h3>
+              <div className="space-y-4 text-xs text-[#E5E2D9]/70 leading-relaxed font-light uppercase tracking-widest leading-[1.8]">
+                <p><span className="font-bold">Titular:</span> Excmo. Ayuntamiento de Alájar</p>
+                <p><span className="font-bold">CIF:</span> P2100100C</p>
+                <p><span className="font-bold">Dirección:</span> Plaza de España, 3, 21340, Alájar (Huelva)</p>
+                <p><span className="font-bold">Email:</span> info@cuevasdealajar.es</p>
+                <p className="mt-6 pt-4 border-t border-[#E5E2D9]/10 opacity-60 normal-case text-[10px]">En cumplimiento de la Ley 34/2002, de 11 de julio, de Servicios de la Sociedad de la Información y de Comercio Electrónico.</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Privacidad Modal */}
+      <AnimatePresence>
+        {isPrivacyModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-[#0D0D0B]/80 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-[#0D0D0B] text-[#E5E2D9] rounded-none w-full max-w-lg border border-[#E5E2D9]/10 relative shadow-2xl p-8"
+            >
+              <button onClick={() => setIsPrivacyModalOpen(false)} className="absolute top-4 right-4 text-[#E5E2D9]/30 hover:text-white"><X className="w-5 h-5" /></button>
+              <h3 className="font-serif text-2xl tracking-wide uppercase mb-6 text-[#C4A484]">Protección de Datos</h3>
+              <div className="space-y-4 text-xs text-[#E5E2D9]/70 leading-relaxed font-light uppercase tracking-widest leading-[1.8]">
+                <p><span className="font-bold">Responsable:</span> Excmo. Ayuntamiento de Alájar (P2100100C)</p>
+                <p><span className="font-bold">Finalidad:</span> Gestión de reservas, venta de entradas y control de acceso a las Cuevas de Alájar.</p>
+                <p><span className="font-bold">Legitimación:</span> Su consentimiento explícito al realizar la reserva.</p>
+                <p><span className="font-bold">Derechos:</span> Acceso, rectificación, y borrado de sus datos escribiendo a secretaria@alajar.es.</p>
+                <p className="mt-6 pt-4 border-t border-[#E5E2D9]/10 opacity-60 normal-case text-[10px]">Toda la información es gestionada bajo estrictas medidas de seguridad conforme al RGPD.</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Full Ordinance Text Modal */}
+      <AnimatePresence>
+        {isFullOrdinanceOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] bg-[#0D0D0B]/95 backdrop-blur-md flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-[#0D0D0B] text-[#E5E2D9] rounded-none w-full max-w-4xl border border-[#E5E2D9]/10 relative shadow-2xl flex flex-col max-h-[90vh]"
+            >
+              <button onClick={() => setIsFullOrdinanceOpen(false)} className="absolute top-6 right-6 text-[#E5E2D9]/30 hover:text-white z-10"><X className="w-6 h-6" /></button>
+              
+              <div className="p-8 md:p-12 overflow-y-auto custom-scrollbar">
+                <div className="max-w-2xl mx-auto space-y-12 pb-20">
+                  <div className="text-center space-y-4 border-b border-[#E5E2D9]/10 pb-12">
+                    <Mountain className="w-12 h-12 text-[#C4A484] mx-auto mb-4" />
+                    <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-[#C4A484]">Excmo. Ayuntamiento de Alájar</h2>
+                    <h1 className="text-3xl md:text-4xl font-serif leading-tight">ORDENANZA REGULADORA DEL USO, ACCESO, SEGURIDAD Y CONSERVACIÓN</h1>
+                    <p className="text-[10px] opacity-40 uppercase tracking-widest pt-4">Peña de Arias Montano, Cuevas de Alájar y Centro de Visitantes</p>
+                  </div>
+
+                  <div className="space-y-8 text-sm leading-relaxed text-[#E5E2D9]/80 font-light font-serif">
+                    <section>
+                      <h3 className="text-[#C4A484] uppercase tracking-widest text-xs font-bold mb-4 italic">Exposición de Motivos</h3>
+                      <p>El municipio de Alájar, debido al gran patrimonio cultural con el que cuenta, recibe gran afluencia de visitantes durante todo el año. El conjunto histórico de Alájar, declarado como Bien de Interés Cultural, requiere una gestión adecuada para garantizar su preservación y permitir su disfrute público en condiciones de seguridad y conservación.</p>
+                    </section>
+
+                    <section className="space-y-4">
+                      <h3 className="text-[#C4A484] uppercase tracking-widest text-xs font-bold mb-2">Título I. Disposiciones Generales</h3>
+                      <div className="space-y-4">
+                        <p><span className="font-bold block mb-1">Artículo 1. Objeto.</span> Regular el acceso, uso y funcionamiento de las visitas turísticas a la Peña de Arias Montano, Cuevas de Alájar y Centro de visitantes.</p>
+                        <p><span className="font-bold block mb-1">Artículo 2. Ámbito de aplicación.</span> Será de aplicación a la Peña de Arias Montano, Cuevas de Alájar y Centro de visitantes, así como sus zonas de acceso y rutas de aproximación.</p>
+                      </div>
+                    </section>
+
+                    <section className="space-y-4 text-[#E5E2D9]/90">
+                      <h3 className="text-[#C4A484] uppercase tracking-widest text-xs font-bold mb-2">Título II. Acceso y Uso</h3>
+                      <div className="space-y-6">
+                        <div className="border-l-2 border-[#C4A484]/20 pl-4">
+                          <p className="font-bold mb-2 uppercase text-[10px] tracking-widest text-[#C4A484]/70">Artículo 4. Modalidades.</p>
+                          <p>1. El acceso a la ruta turística consistente en la visita turística a la Peña de Arias Montano, Cuevas de Alájar y Centro de visitantes, se realizará a través de visita guiada oficial. No obstante, el acceso a la Peña únicamente es libre y gratuito.</p>
+                        </div>
+                        <div className="border-l-2 border-[#C4A484]/20 pl-4">
+                          <p className="font-bold mb-2 uppercase text-[10px] tracking-widest text-[#C4A484]/70">Artículo 6. Aforos y reservas.</p>
+                          <p>1. El Ayuntamiento fijará un aforo máximo en función de informes técnicos y medioambientales para preservar la geología y biodiversidad.</p>
+                          <p>2. Las visitas podrán requerir reserva previa, siendo obligatoria para grupos de más de 30 personas.</p>
+                        </div>
+                        <div className="border-l-2 border-[#C4A484]/20 pl-4 text-red-100/70 bg-red-500/5 p-4">
+                          <p className="font-bold mb-2 flex items-center gap-2 uppercase text-[10px] tracking-widest"><AlertCircle className="w-4 h-4" /> Artículo 7. Condiciones de acceso.</p>
+                          <p>5. El acceso a las Cuevas es totalmente incompatible a personas con limitaciones físicas. Se informará claramente de esta cuestión en el proceso de reserva.</p>
+                        </div>
+                      </div>
+                    </section>
+
+                    <section className="space-y-4">
+                      <h3 className="text-[#C4A484] uppercase tracking-widest text-xs font-bold mb-2">Título III. Normas de Seguridad</h3>
+                      <div className="bg-[#E5E2D9]/5 p-6 space-y-4 border border-[#E5E2D9]/10">
+                        <p className="font-bold text-[#E5E2D9] uppercase text-[10px] tracking-widest mb-4">Artículo 9. Equipamiento obligatorio:</p>
+                        <ul className="list-disc pl-5 space-y-3 text-xs leading-relaxed">
+                          <li>Uso de casco protector y redecilla higiénica para el pelo (facilitados por el guía).</li>
+                          <li>Uso de calzado adecuado, especialmente el carácter antideslizante.</li>
+                          <li>Ropa adecuada considerando el porcentaje de humedad en el interior.</li>
+                        </ul>
+                      </div>
+                    </section>
+
+                    <section className="space-y-4 font-serif italic text-lg leading-relaxed text-[#C4A484]/90 border-y border-[#E5E2D9]/10 py-12 text-center">
+                      <p>"Queda completamente prohibido tocar cualquier formación geológica en el interior de las Cuevas, así como sustraer rocas o molestar a la fauna existente."</p>
+                    </section>
+
+                    <div className="pt-12 text-center opacity-40 text-[10px] uppercase tracking-[0.2em] space-y-2">
+                      <p>Sede Administrativa:</p>
+                      <p>Plaza de España, 3, 21340, Alájar (HUELVA)</p>
+                      <p>Excmo. Ayuntamiento de Alájar</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </motion.div>
           </motion.div>
         )}
