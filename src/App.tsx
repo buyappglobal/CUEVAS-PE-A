@@ -580,7 +580,7 @@ export default function App() {
                 <Phone className="w-4 h-4 shrink-0 mt-1" />
                 <div className="flex flex-col gap-1">
                   <span className="normal-case text-[12px]">959 12 57 10 / 671 844 875</span>
-                  <span className="text-[10px] text-[#E5E2D9]/30">Atención: Rafa Caballero Santa Olalla</span>
+                  <span className="text-[10px] text-[#E5E2D9]/30">Horario de Atención telefónica de 9-14 horas</span>
                 </div>
               </li>
               <li className="flex items-start gap-3">
