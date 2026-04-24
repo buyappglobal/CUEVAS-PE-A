@@ -18,16 +18,17 @@ app.use(express.urlencoded({ extended: true }));
 const REDSYS_SECRET_KEY = process.env.REDSYS_SECRET_KEY || 'sq7HjrUOBfKmC576ILgskD5srU870gJ7';
 const MERCHANT_CODE = process.env.REDSYS_MERCHANT_CODE || '369364104';
 const TERMINAL = process.env.REDSYS_TERMINAL || '1';
-const REDSYS_URL = process.env.REDSYS_URL || 'https://sis-t.redsys.es:25443/sis/realizarPago';
+// Si el usuario ha configurado su propia clave, probablemente quiera ir a Producción (excepto si especifica URL)
+const REDSYS_URL = process.env.REDSYS_URL || (process.env.REDSYS_SECRET_KEY ? 'https://sis.redsys.es/sis/realizarPago' : 'https://sis-t.redsys.es:25443/sis/realizarPago');
 
 // Función para encriptar la MAC usando 3DES (Triple DES)
 function encrypt3DES(orderId: string, secret: string) {
   const decodedSecret = Buffer.from(secret, 'base64');
-  const iv = Buffer.alloc(8, 0); // Initialization Vector a 0
+  const iv = Buffer.alloc(8, 0); 
   const cipher = crypto.createCipheriv('des-ede3-cbc', decodedSecret, iv);
   cipher.setAutoPadding(false);
 
-  // Asegurar padding de ceros hasta un múltiplo de 8 para cumplir exigencias 3des
+  // Redsys requiere padding de ceros hasta un múltiplo de 8 bytes
   const orderBuffer = Buffer.from(orderId, 'utf-8');
   let paddedLength = orderBuffer.length;
   if (paddedLength % 8 !== 0) {
