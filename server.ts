@@ -15,18 +15,15 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true })); 
 
 // --- Configuración de Redsys ---
-const REDSYS_SECRET_KEY = process.env.REDSYS_SECRET_KEY;
-const MERCHANT_CODE = process.env.REDSYS_MERCHANT_CODE || '369364104';
-const TERMINAL = process.env.REDSYS_TERMINAL || '1';
+const REDSYS_SECRET_KEY = (process.env.REDSYS_SECRET_KEY || '').trim();
+const MERCHANT_CODE = (process.env.REDSYS_MERCHANT_CODE || '999008881').trim();
+const TERMINAL = (process.env.REDSYS_TERMINAL || '1').trim();
 
 // Si el usuario ha configurado su propia clave, probablemente quiera ir a Producción (excepto si especifica URL)
-const REDSYS_URL = process.env.REDSYS_URL || (process.env.REDSYS_SECRET_KEY && process.env.REDSYS_SECRET_KEY !== 'sq7HjrUOBfKmC576ILgskD5srU870gJ7' 
+const REDSYS_URL = process.env.REDSYS_URL || (REDSYS_SECRET_KEY && REDSYS_SECRET_KEY !== 'sq7HjrUOBfKmC576ILgskD5srU870gJ7' 
   ? 'https://sis.redsys.es/sis/realizarPago' 
   : 'https://sis-t.redsys.es:25443/sis/realizarPago');
 
-if (!REDSYS_SECRET_KEY) {
-  console.warn("⚠️ ALERTA: REDSYS_SECRET_KEY no está configurada. Usando clave de pruebas por defecto.");
-}
 const ACTUAL_SECRET = REDSYS_SECRET_KEY || 'sq7HjrUOBfKmC576ILgskD5srU870gJ7';
 
 // Función para encriptar la MAC usando 3DES (Triple DES)
@@ -36,7 +33,7 @@ function encrypt3DES(orderId: string, secret: string) {
   const cipher = crypto.createCipheriv('des-ede3-cbc', decodedSecret, iv);
   cipher.setAutoPadding(false);
 
-  // Redsys requiere padding de ceros hasta un múltiplo de 8 bytes
+  // Redsys requiere padding de ceros hasta un múltiplo de 8 bytes para el ID de pedido
   const orderBuffer = Buffer.from(orderId, 'utf-8');
   let paddedLength = orderBuffer.length;
   if (paddedLength % 8 !== 0) {
@@ -50,7 +47,7 @@ function encrypt3DES(orderId: string, secret: string) {
   return encrypted;
 }
 
-// Función para generar la firma HMAC-SHA256 final
+// Función para generar la firma HMAC-SHA256 final (especificación Redsys)
 function mac256(data: string, key: Buffer) {
   return crypto.createHmac('sha256', key).update(data, 'utf8').digest('base64');
 }
@@ -67,22 +64,23 @@ app.post('/api/create-payment', (req, res) => {
     
     console.log(`🎟️ Iniciando reserva - Pedido: ${orderId} | Total: ${amount}€`);
 
-    // El servidor puede recibir esta URL dependiendo de si estamos en dev o deploy,
     const host = req.get('x-forwarded-host') || req.get('host');
     const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
     const baseUrl = `${protocol}://${host}`;
 
+    // Usamos EXACTAMENTE el casing que indica la documentación oficial (Ds_Merchant_...)
     const params = {
-      DS_MERCHANT_AMOUNT: amountStr,
-      DS_MERCHANT_ORDER: orderId,
-      DS_MERCHANT_MERCHANTCODE: MERCHANT_CODE,
-      DS_MERCHANT_CURRENCY: '978',
-      DS_MERCHANT_TRANSACTIONTYPE: '0',
-      DS_MERCHANT_TERMINAL: TERMINAL,
-      DS_MERCHANT_MERCHANTURL: `${baseUrl}/api/redsys-webhook`, // Callback URL en segundo plano
-      DS_MERCHANT_URLOK: `${baseUrl}?payment=success`, // URL de retorno si éxito
-      DS_MERCHANT_URLKO: `${baseUrl}?payment=error`,   // URL de retorno si fallo
-      DS_MERCHANT_MERCHANTDATA: JSON.stringify({ tickets, date, time, customer }) // Pasamos la config de tickets para control interno
+      Ds_Merchant_Amount: amountStr,
+      Ds_Merchant_Order: orderId,
+      Ds_Merchant_MerchantCode: MERCHANT_CODE,
+      Ds_Merchant_Currency: '978', // Euro (Correcto)
+      Ds_Merchant_TransactionType: '0', // Tipo normal
+      Ds_Merchant_Terminal: TERMINAL,
+      Ds_Merchant_MerchantURL: `${baseUrl}/api/redsys-webhook`,
+      Ds_Merchant_UrlOK: `${baseUrl}?payment=success`,
+      Ds_Merchant_UrlKO: `${baseUrl}?payment=error`,
+      Ds_Merchant_ConsumerLanguage: '001', // Español
+      Ds_Merchant_MerchantData: JSON.stringify({ tickets, date, time, customer }) 
     };
 
     const paramsBase64 = Buffer.from(JSON.stringify(params), 'utf-8').toString('base64');
