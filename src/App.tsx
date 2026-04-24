@@ -482,9 +482,10 @@ export default function App() {
                 <p className="text-[#E5E2D9]/60 text-sm leading-[1.6] mb-8 flex-grow">
                   Experiencia adaptada para agrupaciones, escuelas y empresas de turismo con convenio. Reserva de franjas horarias exclusivas y tarifa reducida en bloque para grupos de más de 20 estudiantes. (Es obligatoria la reserva previa por parte del Centro o AMPA).
                 </p>
-                <div className="flex flex-col items-center justify-center mt-auto pt-6 border-t border-[#E5E2D9]/10 text-center">
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-[#C4A484] mb-2 font-bold">Solicitar Reserva</span>
+                <div className="flex flex-col items-center justify-center mt-auto pt-6 border-t border-[#E5E2D9]/10 text-center gap-1">
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-[#C4A484] mb-1 font-bold">Solicitar Reserva</span>
                   <span className="text-[#E5E2D9] text-base font-serif lowercase tracking-wide">info@cuevasdealajar.es</span>
+                  <span className="text-[#E5E2D9] text-base font-serif tracking-wide">671 844 875</span>
                 </div>
               </div>
             </FadeIn>
