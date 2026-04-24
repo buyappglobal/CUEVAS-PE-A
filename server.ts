@@ -14,10 +14,11 @@ app.use(express.json());
 // Webhooks urlencoded payloads sometimes
 app.use(express.urlencoded({ extended: true })); 
 
-// --- Configuración de Redsys (Entorno de Test) ---
-const REDSYS_SECRET_KEY = 'sq7HjrUOBfKmC576ILgskD5srU870gJ7';
-const MERCHANT_CODE = '369364104';
-const TERMINAL = '1';
+// --- Configuración de Redsys ---
+const REDSYS_SECRET_KEY = process.env.REDSYS_SECRET_KEY || 'sq7HjrUOBfKmC576ILgskD5srU870gJ7';
+const MERCHANT_CODE = process.env.REDSYS_MERCHANT_CODE || '369364104';
+const TERMINAL = process.env.REDSYS_TERMINAL || '1';
+const REDSYS_URL = process.env.REDSYS_URL || 'https://sis-t.redsys.es:25443/sis/realizarPago';
 
 // Función para encriptar la MAC usando 3DES (Triple DES)
 function encrypt3DES(orderId: string, secret: string) {
@@ -83,7 +84,7 @@ app.post('/api/create-payment', (req, res) => {
 
     // Devolvemos el pack completo al Frontend
     res.json({
-      url: 'https://sis-t.redsys.es:25443/sis/realizarPago',
+      url: REDSYS_URL,
       paramsBase64,
       signature,
       version: 'HMAC_SHA256_V1'
