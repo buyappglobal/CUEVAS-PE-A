@@ -200,7 +200,11 @@ export default function App() {
     try {
       // 1. Crear documento pendiente en Firestore
       // Generador de ID de pedido único para alinear con Redsys (12 chars)
-      const orderId = String(Math.floor(Date.now() / 1000)).substring(0, 12).padStart(12, '0');
+      // Debe empezar por 4 números. Usamos timestamp y un aleatorio.
+      const now = new Date();
+      const timestampPart = now.getTime().toString().slice(-8); // últimos 8 dígitos del timestamp
+      const randomPart = Math.floor(1000 + Math.random() * 9000).toString(); // 4 dígitos aleatorios
+      const orderId = `${timestampPart}${randomPart}`.substring(0, 12);
 
       const resRef = doc(collection(db, 'reservations'));
       await setDoc(resRef, {
@@ -316,7 +320,7 @@ export default function App() {
             <a href="#visitas" className="hover:text-[#E5E2D9] transition-colors">Visitas y Tarifas</a>
             <a href="#alajar" className="hover:text-[#E5E2D9] transition-colors">Descubre Alájar</a>
             <button onClick={() => openBooking()} className="text-[#C4A484] hover:opacity-100 opacity-80 font-bold transition-opacity">
-              Comprar Entradas
+              Solicitar Reserva
             </button>
           </div>
         </div>
@@ -368,7 +372,7 @@ export default function App() {
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
           >
             <button onClick={() => openBooking()} className="px-8 py-4 bg-[#C4A484] text-[#0D0D0B] rounded-none text-[12px] uppercase font-bold tracking-[0.1em] hover:bg-[#b09376] transition-all w-full sm:w-auto">
-              Comprar Entradas
+              Solicitar Reserva
             </button>
             <a href="#descubre" className="px-8 py-4 bg-transparent border border-[#E5E2D9]/30 text-[#E5E2D9] rounded-none uppercase text-[12px] font-bold tracking-[0.1em] hover:bg-[#E5E2D9]/5 transition-all w-full sm:w-auto flex justify-center items-center gap-2">
               Descubrir las cuevas <ChevronRight className="w-4 h-4" />
@@ -462,8 +466,8 @@ export default function App() {
                   <div className="flex flex-col">
                     <span className="text-3xl font-serif text-[#E5E2D9]">Desde 8€</span>
                   </div>
-                  <button onClick={() => openBooking('Visita Guiada a las Cuevas')} className="py-3 px-6 bg-[#E5E2D9]/5 hover:bg-[#C4A484] hover:text-[#0D0D0B] text-[#C4A484] flex items-center gap-2 text-[11px] uppercase tracking-[0.1em] font-bold transition-colors">
-                    Adquirir Entrada
+                  <button onClick={() => openBooking('Visita Guidada a las Cuevas')} className="py-3 px-6 bg-[#E5E2D9]/5 hover:bg-[#C4A484] hover:text-[#0D0D0B] text-[#C4A484] flex items-center gap-2 text-[11px] uppercase tracking-[0.1em] font-bold transition-colors">
+                    Solicitar Reserva
                   </button>
                 </div>
               </div>
@@ -775,7 +779,7 @@ export default function App() {
                       disabled={isLoadingPayment || (totalPrice === 0 && tickets.childFree === 0)}
                       className="w-full bg-[#C4A484] disabled:opacity-50 disabled:cursor-not-allowed text-[#0D0D0B] rounded-none py-4 text-[12px] font-bold tracking-[0.1em] uppercase hover:bg-[#b09376] transition-colors active:scale-[0.98] flex items-center justify-center"
                     >
-                      {isLoadingPayment ? <span className="animate-pulse">Cargando pasarela...</span> : 'Continuar a Redsys'}
+                      {isLoadingPayment ? <span className="animate-pulse">Cargando pasarela...</span> : 'Confirmar Reserva'}
                     </button>
                     <p className="text-center text-[10px] uppercase tracking-[0.1em] text-[#E5E2D9]/50 mt-4 flex items-center justify-center gap-1">
                       <Info className="w-3 h-3" /> Plataforma de pago 100% segura.

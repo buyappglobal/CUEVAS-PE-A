@@ -15,11 +15,19 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true })); 
 
 // --- Configuración de Redsys ---
-const REDSYS_SECRET_KEY = process.env.REDSYS_SECRET_KEY || 'sq7HjrUOBfKmC576ILgskD5srU870gJ7';
+const REDSYS_SECRET_KEY = process.env.REDSYS_SECRET_KEY;
 const MERCHANT_CODE = process.env.REDSYS_MERCHANT_CODE || '369364104';
 const TERMINAL = process.env.REDSYS_TERMINAL || '1';
+
 // Si el usuario ha configurado su propia clave, probablemente quiera ir a Producción (excepto si especifica URL)
-const REDSYS_URL = process.env.REDSYS_URL || (process.env.REDSYS_SECRET_KEY ? 'https://sis.redsys.es/sis/realizarPago' : 'https://sis-t.redsys.es:25443/sis/realizarPago');
+const REDSYS_URL = process.env.REDSYS_URL || (process.env.REDSYS_SECRET_KEY && process.env.REDSYS_SECRET_KEY !== 'sq7HjrUOBfKmC576ILgskD5srU870gJ7' 
+  ? 'https://sis.redsys.es/sis/realizarPago' 
+  : 'https://sis-t.redsys.es:25443/sis/realizarPago');
+
+if (!REDSYS_SECRET_KEY) {
+  console.warn("⚠️ ALERTA: REDSYS_SECRET_KEY no está configurada. Usando clave de pruebas por defecto.");
+}
+const ACTUAL_SECRET = REDSYS_SECRET_KEY || 'sq7HjrUOBfKmC576ILgskD5srU870gJ7';
 
 // Función para encriptar la MAC usando 3DES (Triple DES)
 function encrypt3DES(orderId: string, secret: string) {
@@ -80,7 +88,7 @@ app.post('/api/create-payment', (req, res) => {
     const paramsBase64 = Buffer.from(JSON.stringify(params), 'utf-8').toString('base64');
 
     // Generar la firma segura (Server Side)
-    const transactionKey = encrypt3DES(orderId, REDSYS_SECRET_KEY);
+    const transactionKey = encrypt3DES(orderId, ACTUAL_SECRET);
     const signature = mac256(paramsBase64, transactionKey);
 
     // Devolvemos el pack completo al Frontend
