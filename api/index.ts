@@ -53,39 +53,69 @@ function mac256(data: string, key: Buffer) {
 }
 
 // --- Endpoints de la API ---
-app.all('/api/*', (req, res, next) => {
-  console.log(`🔍 API REQUEST: ${req.method} ${req.url}`);
+app.all('*', (req, res, next) => {
+  console.log(`🔍 SERVER REQUEST: ${req.method} ${req.url} | Path: ${req.path}`);
   next();
 });
 
+// Middleware para normalizar la ruta (quitar /api si llega duplicado o si Vercel lo maneja raro)
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api')) {
+    // No cambiamos nada, dejamos que las rutas coincidan con /api/...
+  }
+  next();
+});
+
+// 0. Health check
+app.get(['/api/health', '/health'], (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    env: {
+      hasSecret: !!process.env.REDSYS_SECRET_KEY,
+      merchantCode: MERCHANT_CODE,
+      terminal: TERMINAL,
+      nodeEnv: process.env.NODE_ENV
+    }
+  });
+});
+
 // 1. Endpoint para iniciar el pago
-app.post('/api/create-payment', (req, res) => {
+app.post(['/api/create-payment', '/create-payment'], (req, res) => {
   try {
     const { amount, tickets, date, time, customer, orderId } = req.body;
     
     // Importe multiplicado x 100 para ser céntimos (exigencia de Redsys)
     const amountStr = Math.round(amount * 100).toString();
     
-    console.log(`🎟️ Iniciando reserva - Pedido: ${orderId} | Total: ${amount}€`);
+    console.log(`🎟️ Iniciando reserva - Pedido: ${orderId} | Total: ${amount}€ (${amountStr} cts)`);
 
     const host = req.get('x-forwarded-host') || req.get('host');
     const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
     const baseUrl = `${protocol}://${host}`;
 
-    // Usamos EXACTAMENTE el casing Mixed Case que indica la documentación oficial (Ds_Merchant_...)
+    // Usamos Casing UPPERCASE para máxima compatibilidad con algunos terminales Redsys
     const params = {
-      Ds_Merchant_Amount: amountStr,
-      Ds_Merchant_Order: orderId,
-      Ds_Merchant_MerchantCode: MERCHANT_CODE,
-      Ds_Merchant_Currency: '978',
-      Ds_Merchant_TransactionType: '0',
-      Ds_Merchant_Terminal: TERMINAL,
-      Ds_Merchant_MerchantURL: `${baseUrl}/api/redsys-webhook`,
-      Ds_Merchant_UrlOK: `${baseUrl}?payment=success`,
-      Ds_Merchant_UrlKO: `${baseUrl}?payment=error`,
-      Ds_Merchant_ConsumerLanguage: '001',
-      Ds_Merchant_MerchantData: JSON.stringify({ tickets, date, time, customer }) 
+      DS_MERCHANT_AMOUNT: amountStr,
+      DS_MERCHANT_ORDER: orderId,
+      DS_MERCHANT_MERCHANTCODE: MERCHANT_CODE,
+      DS_MERCHANT_CURRENCY: '978',
+      DS_MERCHANT_TRANSACTIONTYPE: '0',
+      DS_MERCHANT_TERMINAL: TERMINAL.padStart(3, '0'), // Forzamos 3 dígitos (ej: 001)
+      DS_MERCHANT_MERCHANTURL: `${baseUrl}/api/redsys-webhook`,
+      DS_MERCHANT_URLOK: `${baseUrl}?payment=success`,
+      DS_MERCHANT_URLKO: `${baseUrl}?payment=error`,
+      DS_MERCHANT_CONSUMERLANGUAGE: '001'
     };
+
+    // Si hay datos de reserva, los incluimos pero limpios de carácteres raros
+    if (tickets) {
+      (params as any).DS_MERCHANT_MERCHANTDATA = JSON.stringify({ 
+        tickets, 
+        date, 
+        time, 
+        customerEmail: customer?.email 
+      });
+    }
 
     const paramsBase64 = Buffer.from(JSON.stringify(params), 'utf-8').toString('base64');
 
@@ -109,7 +139,8 @@ app.post('/api/create-payment', (req, res) => {
 });
 
 // 2. Endpoint oculto (Webhook) donde Redsys confirmará si el pago fue exitoso
-app.post('/api/redsys-webhook', async (req, res) => {
+app.post(['/api/redsys-webhook', '/redsys-webhook'], async (req, res) => {
+  console.log("📥 WEBHOOK REDSYS - URL:", req.url);
   console.log("📥 WEBHOOK REDSYS - BODY RECIBIDO:", JSON.stringify(req.body, null, 2));
   
   const { Ds_SignatureVersion, Ds_MerchantParameters, Ds_Signature } = req.body;

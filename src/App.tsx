@@ -239,6 +239,12 @@ export default function App() {
         body: JSON.stringify({ orderId, amount: totalPrice, tickets, date, time, customer: { name: customerName, email: customerEmail } })
       });
       
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Error del servidor (${response.status}):`, errorText);
+        throw new Error(`Error del servidor al procesar el pago (${response.status})`);
+      }
+
       const session = await response.json();
       
       if (!session.paramsBase64) {
