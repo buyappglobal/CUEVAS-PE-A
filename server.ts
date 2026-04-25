@@ -68,19 +68,19 @@ app.post('/api/create-payment', (req, res) => {
     const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
     const baseUrl = `${protocol}://${host}`;
 
-    // Usamos EXACTAMENTE el casing UPPERCASE que indica la documentación oficial (DS_MERCHANT_...)
+    // Usamos EXACTAMENTE el casing Mixed Case que indica la documentación oficial (Ds_Merchant_...)
     const params = {
-      DS_MERCHANT_AMOUNT: amountStr,
-      DS_MERCHANT_ORDER: orderId,
-      DS_MERCHANT_MERCHANTCODE: MERCHANT_CODE,
-      DS_MERCHANT_CURRENCY: '978', // Euro (Correcto)
-      DS_MERCHANT_TRANSACTIONTYPE: '0', // Tipo normal
-      DS_MERCHANT_TERMINAL: TERMINAL,
-      DS_MERCHANT_MERCHANTURL: `${baseUrl}/api/redsys-webhook`,
-      DS_MERCHANT_URLOK: `${baseUrl}?payment=success`,
-      DS_MERCHANT_URLKO: `${baseUrl}?payment=error`,
-      DS_MERCHANT_CONSUMERLANGUAGE: '001', // Español
-      DS_MERCHANT_MERCHANTDATA: JSON.stringify({ tickets, date, time, customer }) 
+      Ds_Merchant_Amount: amountStr,
+      Ds_Merchant_Order: orderId,
+      Ds_Merchant_MerchantCode: MERCHANT_CODE,
+      Ds_Merchant_Currency: '978', // Euro
+      Ds_Merchant_TransactionType: '0',
+      Ds_Merchant_Terminal: TERMINAL,
+      Ds_Merchant_MerchantURL: `${baseUrl}/api/redsys-webhook`,
+      Ds_Merchant_UrlOK: `${baseUrl}?payment=success`,
+      Ds_Merchant_UrlKO: `${baseUrl}?payment=error`,
+      Ds_Merchant_ConsumerLanguage: '001', // Español
+      Ds_Merchant_MerchantData: JSON.stringify({ tickets, date, time, customer }) 
     };
 
     const paramsBase64 = Buffer.from(JSON.stringify(params), 'utf-8').toString('base64');
