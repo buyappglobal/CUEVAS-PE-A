@@ -93,23 +93,23 @@ app.post(['/api/create-payment', '/create-payment'], (req, res) => {
     const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
     const baseUrl = `${protocol}://${host}`;
 
-    // Usamos Casing UPPERCASE para máxima compatibilidad con algunos terminales Redsys
+    // Usamos EXACTAMENTE el casing Mixed Case que indica la documentación oficial (Ds_Merchant_...)
     const params = {
-      DS_MERCHANT_AMOUNT: amountStr,
-      DS_MERCHANT_ORDER: orderId,
-      DS_MERCHANT_MERCHANTCODE: MERCHANT_CODE,
-      DS_MERCHANT_CURRENCY: '978',
-      DS_MERCHANT_TRANSACTIONTYPE: '0',
-      DS_MERCHANT_TERMINAL: TERMINAL.padStart(3, '0'), // Forzamos 3 dígitos (ej: 001)
-      DS_MERCHANT_MERCHANTURL: `${baseUrl}/api/redsys-webhook`,
-      DS_MERCHANT_URLOK: `${baseUrl}?payment=success`,
-      DS_MERCHANT_URLKO: `${baseUrl}?payment=error`,
-      DS_MERCHANT_CONSUMERLANGUAGE: '001'
+      Ds_Merchant_Amount: amountStr,
+      Ds_Merchant_Order: orderId,
+      Ds_Merchant_MerchantCode: MERCHANT_CODE,
+      Ds_Merchant_Currency: '978',
+      Ds_Merchant_TransactionType: '0',
+      Ds_Merchant_Terminal: TERMINAL,
+      Ds_Merchant_MerchantURL: `${baseUrl}/api/redsys-webhook`,
+      Ds_Merchant_UrlOK: `${baseUrl}?payment=success`,
+      Ds_Merchant_UrlKO: `${baseUrl}?payment=error`,
+      Ds_Merchant_ConsumerLanguage: '001'
     };
 
     // Si hay datos de reserva, los incluimos pero limpios de carácteres raros
     if (tickets) {
-      (params as any).DS_MERCHANT_MERCHANTDATA = JSON.stringify({ 
+      (params as any).Ds_Merchant_MerchantData = JSON.stringify({ 
         tickets, 
         date, 
         time, 
