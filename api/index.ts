@@ -53,6 +53,10 @@ function mac256(data: string, key: Buffer) {
 }
 
 // --- Endpoints de la API ---
+app.all('/api/*', (req, res, next) => {
+  console.log(`🔍 API REQUEST: ${req.method} ${req.url}`);
+  next();
+});
 
 // 1. Endpoint para iniciar el pago
 app.post('/api/create-payment', (req, res) => {
@@ -199,10 +203,16 @@ async function startServer() {
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else if (!process.env.VERCEL) {
+  } else {
+    // En producción (incluyendo Vercel), servimos estáticos si no lo hace el host
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
+      // Si la URL empieza por /api y llega aquí, es que no se encontró la ruta
+      if (req.url.startsWith('/api')) {
+        console.warn(`⚠️ Ruta API no encontrada: ${req.url}`);
+        return res.status(404).json({ error: 'API route not found' });
+      }
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
