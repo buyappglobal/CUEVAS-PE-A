@@ -199,12 +199,14 @@ export default function App() {
     
     try {
       // 1. Crear documento pendiente en Firestore
-      // Generador de ID de pedido único para alinear con Redsys (12 chars)
-      // Debe empezar por 4 números. Usamos timestamp y un aleatorio.
+      // Generador de ID de pedido único (12 dígitos numéricos)
+      // Formato: AAAAmmdd + 4 dígitos aleatorios
       const now = new Date();
-      const timestampPart = now.getTime().toString().slice(-8); // últimos 8 dígitos del timestamp
-      const randomPart = Math.floor(1000 + Math.random() * 9000).toString(); // 4 dígitos aleatorios
-      const orderId = `${timestampPart}${randomPart}`.substring(0, 12);
+      const YYYY = now.getFullYear().toString();
+      const MM = (now.getMonth() + 1).toString().padStart(2, '0');
+      const DD = now.getDate().toString().padStart(2, '0');
+      const randomPart = Math.floor(1000 + Math.random() * 9000).toString();
+      const orderId = `${YYYY}${MM}${DD}${randomPart}`.substring(0, 12);
 
       const resRef = doc(collection(db, 'reservations'));
       await setDoc(resRef, {
@@ -488,7 +490,7 @@ export default function App() {
                 </p>
                 <div className="flex flex-col items-center justify-center mt-auto pt-6 border-t border-[#E5E2D9]/10 text-center gap-1">
                   <span className="text-[10px] uppercase tracking-[0.2em] text-[#C4A484] mb-1 font-bold">Solicitar Reserva</span>
-                  <span className="text-[#E5E2D9] text-base font-serif lowercase tracking-wide">info@cuevasdealajar.es</span>
+                  <span className="text-[#E5E2D9] text-base font-serif lowercase tracking-wide">info@cuevasdealajar.com</span>
                   <span className="text-[#E5E2D9] text-base font-serif tracking-wide">671 844 875</span>
                 </div>
               </div>
@@ -590,7 +592,7 @@ export default function App() {
               <li className="flex items-start gap-3">
                 <Mail className="w-4 h-4 shrink-0" />
                 <div className="flex flex-col">
-                  <span className="normal-case text-[12px]">info@cuevasdealajar.es</span>
+                  <span className="normal-case text-[12px]">info@cuevasdealajar.com</span>
                   <span className="normal-case text-[12px]">secretaria@alajar.es</span>
                 </div>
               </li>
@@ -918,7 +920,7 @@ export default function App() {
                 <p><span className="font-bold">Titular:</span> Excmo. Ayuntamiento de Alájar</p>
                 <p><span className="font-bold">CIF:</span> P2100100C</p>
                 <p><span className="font-bold">Dirección:</span> Plaza de España, 3, 21340, Alájar (Huelva)</p>
-                <p><span className="font-bold">Email:</span> info@cuevasdealajar.es</p>
+                <p><span className="font-bold">Email:</span> info@cuevasdealajar.com</p>
                 <p className="mt-6 pt-4 border-t border-[#E5E2D9]/10 opacity-60 normal-case text-[10px]">En cumplimiento de la Ley 34/2002, de 11 de julio, de Servicios de la Sociedad de la Información y de Comercio Electrónico.</p>
               </div>
             </motion.div>

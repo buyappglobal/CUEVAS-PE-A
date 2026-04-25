@@ -16,7 +16,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // --- Configuración de Redsys ---
 const REDSYS_SECRET_KEY = (process.env.REDSYS_SECRET_KEY || '').trim();
-const MERCHANT_CODE = (process.env.REDSYS_MERCHANT_CODE || '999008881').trim();
+const MERCHANT_CODE = (process.env.REDSYS_MERCHANT_CODE || '369364104').trim();
 const TERMINAL = String(process.env.REDSYS_TERMINAL || '1').trim().padStart(3, '0');
 
 // Si el usuario ha configurado su propia clave, probablemente quiera ir a Producción (excepto si especifica URL)
@@ -104,6 +104,8 @@ app.post('/api/create-payment', (req, res) => {
 
 // 2. Endpoint oculto (Webhook) donde Redsys confirmará si el pago fue exitoso
 app.post('/api/redsys-webhook', async (req, res) => {
+  console.log("📥 WEBHOOK REDSYS - BODY RECIBIDO:", JSON.stringify(req.body, null, 2));
+  
   const { Ds_SignatureVersion, Ds_MerchantParameters, Ds_Signature } = req.body;
   
   if (!Ds_MerchantParameters) {
@@ -158,7 +160,7 @@ app.post('/api/redsys-webhook', async (req, res) => {
               <p>Te recomendamos llegar 10 minutos antes de tu hora asignada.</p>
               
               <div style="text-align: center; margin-top: 40px; color: #999; font-size: 12px;">
-                <p>Si tienes alguna duda, ponte en contacto con taquilla@cuevas.com</p>
+                <p>Si tienes alguna duda, ponte en contacto con info@cuevasdealajar.com</p>
               </div>
             </div>
           </div>
@@ -166,7 +168,7 @@ app.post('/api/redsys-webhook', async (req, res) => {
 
         // Send Email via Resend
         await resend.emails.send({
-          from: 'Cuevas de la Peña <onboarding@resend.dev>', // Usamos el generico de pruebas de Resend
+          from: 'Cuevas de la Peña <info@send.cuevasdealajar.com>',
           to: customer.email,
           subject: '🎟️ Tus entradas confirmadas - Cuevas de la Peña',
           html: emailHtml
