@@ -17,7 +17,7 @@ app.use(express.urlencoded({ extended: true }));
 // --- Configuración de Redsys ---
 const REDSYS_SECRET_KEY = (process.env.REDSYS_SECRET_KEY || '').trim();
 const MERCHANT_CODE = (process.env.REDSYS_MERCHANT_CODE || '999008881').trim();
-const TERMINAL = (process.env.REDSYS_TERMINAL || '1').trim();
+const TERMINAL = String(process.env.REDSYS_TERMINAL || '1').trim().padStart(3, '0');
 
 // Si el usuario ha configurado su propia clave, probablemente quiera ir a Producción (excepto si especifica URL)
 const REDSYS_URL = process.env.REDSYS_URL || (REDSYS_SECRET_KEY && REDSYS_SECRET_KEY !== 'sq7HjrUOBfKmC576ILgskD5srU870gJ7' 
