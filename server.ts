@@ -72,19 +72,19 @@ app.post('/api/create-payment', (req, res) => {
     const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
     const baseUrl = `${protocol}://${host}`;
 
-    // Usamos EXACTAMENTE el casing Mixed Case que indica la documentación oficial (Ds_Merchant_...)
+    // Usamos EXACTAMENTE el casing UPPERCASE que indica la documentación oficial para los parámetros internos del JSON
     const params = {
-      Ds_Merchant_Amount: amountStr,
-      Ds_Merchant_Order: orderId,
-      Ds_Merchant_MerchantCode: MERCHANT_CODE,
-      Ds_Merchant_Currency: '978', // Euro
-      Ds_Merchant_TransactionType: '0',
-      Ds_Merchant_Terminal: TERMINAL,
-      Ds_Merchant_MerchantURL: `${baseUrl}/api/redsys-webhook`,
-      Ds_Merchant_UrlOK: `${baseUrl}?payment=success`,
-      Ds_Merchant_UrlKO: `${baseUrl}?payment=error`,
-      Ds_Merchant_ConsumerLanguage: '001', // Español
-      Ds_Merchant_MerchantData: JSON.stringify({ tickets, date, time, customer }) 
+      DS_MERCHANT_AMOUNT: amountStr,
+      DS_MERCHANT_ORDER: orderId,
+      DS_MERCHANT_MERCHANTCODE: MERCHANT_CODE,
+      DS_MERCHANT_CURRENCY: '978',
+      DS_MERCHANT_TRANSACTIONTYPE: '0',
+      DS_MERCHANT_TERMINAL: TERMINAL,
+      DS_MERCHANT_MERCHANTURL: `${baseUrl}/api/redsys-webhook`,
+      DS_MERCHANT_URLOK: `${baseUrl}?payment=success`,
+      DS_MERCHANT_URLKO: `${baseUrl}?payment=error`,
+      DS_MERCHANT_CONSUMERLANGUAGE: '001',
+      DS_MERCHANT_MERCHANTDATA: JSON.stringify({ tickets, date, time, customer }) 
     };
 
     const paramsBase64 = Buffer.from(JSON.stringify(params), 'utf-8').toString('base64');
@@ -93,10 +93,12 @@ app.post('/api/create-payment', (req, res) => {
     const transactionKey = encrypt3DES(orderId, ACTUAL_SECRET);
     const signature = mac256(paramsBase64, transactionKey);
 
-    // Devolvemos el pack completo al Frontend
+    console.log(`✅ Firma generada para el pedido ${orderId}`);
+
+    // Devolvemos el pack completo al Frontend (React espera .params, no .paramsBase64)
     res.json({
       url: REDSYS_URL,
-      paramsBase64,
+      params: paramsBase64,
       signature,
       version: 'HMAC_SHA256_V1'
     });
