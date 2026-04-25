@@ -17,7 +17,7 @@ app.use(express.urlencoded({ extended: true }));
 // --- Configuración de Redsys ---
 const REDSYS_SECRET_KEY = (process.env.REDSYS_SECRET_KEY || '').trim();
 const MERCHANT_CODE = (process.env.REDSYS_MERCHANT_CODE || '369364104').trim();
-const TERMINAL = '001';
+const TERMINAL = '1';
 
 // Si el usuario ha configurado su propia clave, probablemente quiera ir a Producción (excepto si especifica URL)
 const REDSYS_URL = process.env.REDSYS_URL || (REDSYS_SECRET_KEY && REDSYS_SECRET_KEY !== 'sq7HjrUOBfKmC576ILgskD5srU870gJ7' 
@@ -49,7 +49,7 @@ function encrypt3DES(orderId: string, secret: string) {
 
 // Función para generar la firma HMAC-SHA256 final (especificación Redsys)
 function mac256(data: string, key: Buffer) {
-  return crypto.createHmac('sha256', key).update(data).digest('base64');
+  return crypto.createHmac('sha256', key).update(data, 'utf8').digest('base64');
 }
 
 // --- Endpoints de la API ---
@@ -58,11 +58,8 @@ app.all('*', (req, res, next) => {
   next();
 });
 
-// Middleware para normalizar la ruta (quitar /api si llega duplicado o si Vercel lo maneja raro)
+// Middleware para normalizar la ruta
 app.use((req, res, next) => {
-  if (req.url.startsWith('/api')) {
-    // No cambiamos nada, dejamos que las rutas coincidan con /api/...
-  }
   next();
 });
 
@@ -94,14 +91,13 @@ app.post(['/api/create-payment', '/create-payment'], (req, res) => {
     const baseUrl = `${protocol}://${host}`;
 
     // Parámetros JSON para Redsys. 
-    // NOTA: Aunque el panel diga terminal 1, la especificación técnica HMAC256 exige 3 dígitos (001).
     const params = {
       Ds_Merchant_Amount: amountStr,
       Ds_Merchant_Order: orderId,
       Ds_Merchant_MerchantCode: MERCHANT_CODE,
-      Ds_Merchant_Currency: '978', // Euro
+      Ds_Merchant_Currency: '978',
       Ds_Merchant_Terminal: TERMINAL,
-      Ds_Merchant_TransactionType: '0', // Autorización
+      Ds_Merchant_TransactionType: '0',
       Ds_Merchant_MerchantURL: `${baseUrl}/api/redsys-webhook`,
       Ds_Merchant_UrlOK: `${baseUrl}?payment=success`,
       Ds_Merchant_UrlKO: `${baseUrl}?payment=error`
@@ -110,14 +106,10 @@ app.post(['/api/create-payment', '/create-payment'], (req, res) => {
     const paramsBase64 = Buffer.from(JSON.stringify(params), 'utf8').toString('base64');
 
     // Generar la firma segura (Server Side)
-    // El orden de los factores para la MAC es CRÍTICO:
-    // 1. Encriptar OrderID con la Clave Secreta usando 3DES.
-    // 2. Hacer HMAC-SHA256 del paramsBase64 usando como clave el resultado anterior.
     const transactionKey = encrypt3DES(orderId, ACTUAL_SECRET);
     const signature = mac256(paramsBase64, transactionKey);
 
     console.log(`✅ Firma generada para el pedido ${orderId}`);
-    // console.log(`DEBUG: Params JSON:`, JSON.stringify(params));
 
     // Devolvemos el pack completo al Frontend
     res.json({
