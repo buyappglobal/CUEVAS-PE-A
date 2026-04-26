@@ -276,13 +276,27 @@ app.post(['/api/redsys-webhook', '/redsys-webhook'], async (req, res) => {
         console.error('⚠️ Error actualizando reserva o enviando email:', err.message);
       }
     } else {
-      console.log(`❌ PAGO DENEGADO para ${orderId}. Marcando como 'failed'.`);
+      console.log(`❌ PAGO DENEGADO para ${orderId}. Marcando como 'failed' y liberando aforo.`);
       try {
-        await db.collection('reservations').doc(orderId).update({ 
-          status: 'failed', 
-          errorCode: params.Ds_Response,
-          updatedAt: new Date().toISOString()
-        });
+        const resRef = db.collection('reservations').doc(orderId);
+        const resSnap = await resRef.get();
+        if (resSnap.exists()) {
+          const resData = resSnap.data();
+          if (resData && resData.status === 'pending') {
+            const { date, time, totalTickets } = resData;
+            // Liberar aforo
+            const slotId = `${date}_${time}`;
+            await db.collection('slots').doc(slotId).update({ 
+              bookedCount: admin.firestore.FieldValue.increment(-Number(totalTickets)) 
+            });
+            
+            await resRef.update({ 
+              status: 'failed', 
+              errorCode: params.Ds_Response,
+              updatedAt: new Date().toISOString()
+            });
+          }
+        }
       } catch (e) {
         console.error("Error marcando fallo en DB:", e);
       }

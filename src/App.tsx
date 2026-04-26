@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { db } from './firebase';
-import { collection, doc, setDoc, getDoc, updateDoc, increment } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, updateDoc, increment, query, where, onSnapshot } from 'firebase/firestore';
 import { 
   MapPin, Calendar, Ticket, ChevronRight, Mountain, 
   Leaf, History, Utensils, ArrowRight, Clock, Users, X, Info, Camera, Tent,
@@ -137,21 +137,28 @@ export default function App() {
   
   // Realtime fetching of capacity when date changes
   useEffect(() => {
-    if (!date) return;
-    const fetchCapacities = async () => {
+    if (!date || !isBookingModalOpen) return;
+    
+    // Listen to all slots for the selected date
+    const q = query(collection(db, 'slots'), where('date', '==', date));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const caps: Record<string, number> = {};
-      const times = ['11:00', '12:30', '16:00'];
-      for (const t of times) {
-         try {
-           const snap = await getDoc(doc(db, 'slots', `${date}_${t}`));
-           caps[t] = snap.exists() ? snap.data().bookedCount : 0;
-         } catch(e) {
-           caps[t] = 0;
-         }
-      }
+      // Initialize with 0 for the standard times
+      ['11:00', '12:30', '16:00'].forEach(t => caps[t] = 0);
+      
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.time) {
+          caps[data.time] = data.bookedCount || 0;
+        }
+      });
       setSlotCapacities(caps);
-    };
-    fetchCapacities();
+    }, (error) => {
+      console.error("Error listening to slots:", error);
+    });
+    
+    return () => unsubscribe();
   }, [date, isBookingModalOpen]);
   
   const currentSlotBooked = (time && slotCapacities[time]) ? slotCapacities[time] : 0;

@@ -138,7 +138,9 @@ export default function AdminApp() {
   }, [isAdmin, isBypass]);
 
   // Reservas filtradas por el día seleccionado (solo para el dashboard de aforo)
-  const dayReservations = allReservations.filter(r => r.date === dateFilter);
+  const dayReservations = allReservations.filter(r => 
+    r.date === dateFilter && r.status !== 'cancelled' && r.status !== 'failed'
+  );
 
   const handleCreateManual = async (e: React.FormEvent) => {
     e.preventDefault();
