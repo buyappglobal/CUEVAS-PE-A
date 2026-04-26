@@ -255,7 +255,7 @@ app.post(['/api/redsys-webhook', '/redsys-webhook'], async (req, res) => {
   
           // Send Email via Resend
           await resend.emails.send({
-            from: 'Cuevas de la Peña <info@send.cuevasdealajar.com>',
+            from: 'Cuevas de la Peña <info@cuevasdealajar.com>',
             to: customerEmail,
             subject: '🎟️ Tus entradas confirmadas - Cuevas de la Peña',
             html: emailHtml
