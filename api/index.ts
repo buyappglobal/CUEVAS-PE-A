@@ -29,35 +29,30 @@ const ACTUAL_SECRET = REDSYS_SECRET_KEY || 'sq7HjrUOBfKmC576ILgskD5srU870gJ7';
 function encrypt3DES(orderId: string, secret: string) {
   const decodedSecret = Buffer.from(secret, 'base64');
   
-  // Ajuste de seguridad: 3DES requiere exactamente 24 bytes
-  let key: Buffer;
+  // Ajuste de seguridad para Triple DES: Redsys espera 24 bytes (192 bits).
+  // Si la clave tiene 32 bytes (común en SHA256), usamos los primeros 24.
+  // Si tiene 16 bytes, se suele usar el esquema K1-K2-K1.
+  let keyBytes: Buffer;
   if (decodedSecret.length >= 24) {
-    key = decodedSecret.slice(0, 24);
+    keyBytes = decodedSecret.slice(0, 24);
   } else if (decodedSecret.length === 16) {
-    // Si es una clave de 16 bytes, se usa el esquema K1-K2-K1
-    key = Buffer.concat([decodedSecret, decodedSecret.slice(0, 8)]);
+    keyBytes = Buffer.concat([decodedSecret, decodedSecret.slice(0, 8)]);
   } else {
-    // En otros casos, rellenamos con ceros hasta 24 (menos común)
-    key = Buffer.alloc(24, 0);
-    decodedSecret.copy(key);
+    // Si la clave tiene otra longitud, rellenamos con ceros hasta 24
+    keyBytes = Buffer.alloc(24, 0);
+    decodedSecret.copy(keyBytes);
   }
 
   const iv = Buffer.alloc(8, 0); 
-  const cipher = crypto.createCipheriv('des-ede3-cbc', key, iv);
+  const cipher = crypto.createCipheriv('des-ede3-cbc', keyBytes, iv);
   cipher.setAutoPadding(false);
 
   // Redsys requiere padding de ceros hasta un múltiplo de 8 bytes para el ID de pedido
-  const orderBuffer = Buffer.from(orderId, 'utf-8');
-  let paddedLength = orderBuffer.length;
-  if (paddedLength % 8 !== 0) {
-    paddedLength += 8 - (paddedLength % 8);
-  }
-  const paddedOrder = Buffer.alloc(paddedLength, 0);
-  orderBuffer.copy(paddedOrder);
+  // Para 12 caracteres, el buffer de salida debe ser de 16 bytes.
+  const orderBuffer = Buffer.alloc(Math.ceil(orderId.length / 8) * 8, 0);
+  orderBuffer.write(orderId, 'utf8');
 
-  let encrypted = cipher.update(paddedOrder);
-  encrypted = Buffer.concat([encrypted, cipher.final()]);
-  return encrypted;
+  return Buffer.concat([cipher.update(orderBuffer), cipher.final()]);
 }
 
 // Función para generar la firma HMAC-SHA256 final (especificación Redsys)
@@ -97,32 +92,34 @@ app.use((req, res, next) => {
 // 1. Endpoint para iniciar el pago
 app.post(['/api/create-payment', '/create-payment'], (req, res) => {
   try {
-    const { amount, tickets, date, time, customer, orderId } = req.body;
+    const { amount, tickets, date, time, customer, orderId: incomingOrderId } = req.body;
+    
+    // Usar el orderId que viene del frontend o generar uno si falta
+    const orderId = incomingOrderId || new Date().toISOString().replace(/\D/g, '').slice(0, 12);
     
     // Importe multiplicado x 100 para ser céntimos (exigencia de Redsys)
     const amountStr = Math.round(amount * 100).toString();
     
-    console.log(`🎟️ Iniciando reserva - Pedido: ${orderId} | Total: ${amount}€ (${amountStr} cts)`);
-
-    const host = req.get('x-forwarded-host') || req.get('host');
-    const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
-    const baseUrl = `${protocol}://${host}`;
+    console.log(`🎟️ Invocando Pago - Pedido: ${orderId} | Total: ${amount}€ (${amountStr} cts)`);
+    
+    const keyBytes = Buffer.from(ACTUAL_SECRET, 'base64');
+    console.log(`🔑 Clave usada (Longitud decodificada): ${keyBytes.length} bytes`);
 
     // Parámetros JSON para Redsys. 
+    // Ds_Merchant_Terminal DEBE ser '1' o '001' (numérico). 
+    // Ds_Merchant_Currency 978 es EURO. Ds_Merchant_ConsumerLanguage 001 es ESPAÑOL.
     const params = {
-      Ds_Merchant_Amount: amountStr,            // "1000" para 10€
-      Ds_Merchant_Order: orderId,              // 12 dígitos (ej: 202604253754)
-      Ds_Merchant_MerchantCode: MERCHANT_CODE, // 369364104
+      Ds_Merchant_Amount: amountStr,
+      Ds_Merchant_Order: orderId,
+      Ds_Merchant_MerchantCode: MERCHANT_CODE,
       Ds_Merchant_Currency: '978',
       Ds_Merchant_TransactionType: '0',
-      Ds_Merchant_Terminal: '1',               // Volvemos a '1' para máxima compatibilidad
+      Ds_Merchant_Terminal: '1',
       Ds_Merchant_MerchantURL: `https://www.cuevasdealajar.com/api/redsys-webhook`,
       Ds_Merchant_UrlOK: `https://www.cuevasdealajar.com?payment=success`,
       Ds_Merchant_UrlKO: `https://www.cuevasdealajar.com?payment=error`,
       Ds_Merchant_ConsumerLanguage: '001'
     };
-
-    console.log(`DEBUG: Parámetros del pago (Pedido ${orderId}):`, JSON.stringify(params));
 
     const paramsBase64 = Buffer.from(JSON.stringify(params), 'utf8').toString('base64');
 
@@ -130,7 +127,7 @@ app.post(['/api/create-payment', '/create-payment'], (req, res) => {
     const transactionKey = encrypt3DES(orderId, ACTUAL_SECRET);
     const signature = mac256(paramsBase64, transactionKey);
 
-    console.log(`✅ Firma generada [${signature}] para el pedido ${orderId}`);
+    console.log(`✅ Firma generada para el comerciante ${MERCHANT_CODE}`);
 
     // Devolvemos el pack completo al Frontend
     res.json({
