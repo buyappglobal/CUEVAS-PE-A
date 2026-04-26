@@ -113,6 +113,9 @@ app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
     console.log(`🔑 Clave usada (Longitud decodificada): ${keyBytes.length} bytes`);
 
     // Parámetros JSON para Redsys. 
+    const isProduction = REDSYS_URL.includes('sis.redsys.es');
+    const domain = isProduction ? 'cuevasdealajar.com' : req.get('host');
+    
     const params = {
       Ds_Merchant_Amount: amountStr,
       Ds_Merchant_Order: orderId,
@@ -120,15 +123,17 @@ app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
       Ds_Merchant_Currency: '978',
       Ds_Merchant_TransactionType: '0',
       Ds_Merchant_Terminal: '001',
-      Ds_Merchant_MerchantURL: `https://${req.get('host')}/api/redsys-webhook`,
-      Ds_Merchant_UrlOK: `https://${req.get('host')}?payment=success&order=${orderId}`,
-      Ds_Merchant_UrlKO: `https://${req.get('host')}?payment=error&order=${orderId}`,
+      Ds_Merchant_MerchantURL: `https://${domain}/api/redsys-webhook`,
+      Ds_Merchant_UrlOK: `https://${domain}?payment=success&order=${orderId}`,
+      Ds_Merchant_UrlKO: `https://${domain}?payment=error&order=${orderId}`,
       Ds_Merchant_ConsumerLanguage: '001'
     };
 
     // PERSISTENCIA INICIAL: Guardar la reserva en estado "pending" para visibilidad inmediata en el CRM
     try {
       const totalTickets = (tickets.adult || 0) + (tickets.reduced || 0) + (tickets.childFree || 0);
+      
+      // Intentar guardar la reserva. Si falla, lanzamos error para que no siga a Redsys
       await db.collection('reservations').doc(orderId).set({
         localizador: orderId,
         date,
@@ -142,6 +147,7 @@ app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
         source: 'online',
         createdAt: new Date().toISOString()
       }, { merge: true });
+      
       console.log(`📡 Reserva registrada (Admin SDK) como PENDIENTE: ${orderId}`);
       
       // BLOQUEAR AFORO: Incrementar el contador de ocupación inmediatamente
@@ -151,11 +157,12 @@ app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
       if (slotSnap.exists) {
         await slotRef.update({ bookedCount: admin.firestore.FieldValue.increment(totalTickets) });
       } else {
-        await slotRef.set({ date, time, bookedCount: totalTickets });
+        await slotRef.set({ date, time, bookedCount: totalTickets }, { merge: true });
       }
       console.log(`📉 Aforo actualizado para ${slotId} (+${totalTickets})`);
-    } catch (dbErr) {
-      console.error('⚠️ Error guardando reserva pendiente en DB:', dbErr);
+    } catch (dbErr: any) {
+      console.error('❌ ERROR FATAL guardando reserva en DB:', dbErr);
+      throw new Error(`No se pudo registrar la reserva en la base de datos: ${dbErr.message}`);
     }
 
     const paramsBase64 = Buffer.from(JSON.stringify(params), 'utf8').toString('base64');
@@ -184,51 +191,64 @@ app.post(['/api/redsys-webhook', '/redsys-webhook'], async (req, res) => {
   const timestamp = new Date().toISOString();
   console.log(`[${timestamp}] 📥 WEBHOOK REDSYS RECIBIDO`);
   
-  // Redsys puede enviar los datos en el body o como query params dependiendo de la configuración
-  const body = req.body || {};
-  const Ds_MerchantParameters = body.Ds_MerchantParameters || req.query.Ds_MerchantParameters as string;
-  const Ds_Signature = body.Ds_Signature || req.query.Ds_Signature as string;
+  // Redsys envía los parámetros en el body (POST urlencoded)
+  const Ds_MerchantParameters = req.body.Ds_MerchantParameters;
+  const Ds_Signature = req.body.Ds_Signature;
 
-  if (!Ds_MerchantParameters) {
-    console.warn("⚠️ Webhook llamado sin Ds_MerchantParameters");
-    return res.status(200).send("No params received, but acknowledged");
+  if (!Ds_MerchantParameters || !Ds_Signature) {
+    console.warn("⚠️ Webhook llamado sin parámetros o sin firma");
+    return res.status(200).send("OK-NO-PARAMS");
   }
 
   try {
-    // Decodificar Base64 (Redsys usa codificación estándar base64)
+    // 1. Validar la firma de Redsys para seguridad
     const decodedParamsStr = Buffer.from(Ds_MerchantParameters, 'base64').toString('utf8');
     const params = JSON.parse(decodedParamsStr);
-    
-    // Intentar obtener el ID del pedido de varias fuentes posibles en la respuesta de Redsys
-    const orderId = params.Ds_Order || params.Ds_Merchant_Order || params.Ds_Order_Id;
+    const orderId = params.Ds_Order || params.Ds_Merchant_Order;
+
+    if (!orderId) throw new Error("No order ID found in webhook params");
+
+    // Re-generar firma para comparar
+    const transactionKey = encrypt3DES(orderId, ACTUAL_SECRET);
+    const expectedSignature = mac256(Ds_MerchantParameters, transactionKey);
+
+    // Comparación robusta
+    if (Ds_Signature.replace(/_/g, '/').replace(/-/g, '+') !== expectedSignature) {
+      console.error(`❌ FIRMA INVÁLIDA en Webhook para Pedido ${orderId}`);
+      // Respondemos OK para que Redsys no reintente algo que nunca será válido
+      return res.status(200).send("OK-BAD-SIG"); 
+    }
+
     const responseCode = params.Ds_Response;
     const responseNum = parseInt(responseCode, 10);
     const isSuccess = responseNum >= 0 && responseNum <= 99;
 
     console.log(`🔔 Webhook Redsys [${orderId}]: Código=${responseCode} | Éxito=${isSuccess}`);
 
-    if (!orderId) {
-      console.error("❌ No se encontró OrderId en los parámetros decodificados");
-      return res.status(200).send("OK-NO-ORDER");
-    }
-
     if (isSuccess) {
-      console.log(`✅ PAGO CONFIRMADO para ${orderId}. Actualizando a 'confirmed'...`);
+      console.log(`✅ PAGO CONFIRMADO para ${orderId}.`);
       
-      try {
-        const resRef = db.collection('reservations').doc(orderId);
+      const resRef = db.collection('reservations').doc(orderId);
+      const resSnap = await resRef.get();
+      
+      if (!resSnap.exists) {
+        console.error(`❌ ERROR: Reserva ${orderId} no existe en Firestore al intentar confirmar.`);
+        return res.status(200).send("OK-NO-RES");
+      }
+
+      const resData = resSnap.data();
+      
+      // Solo actualizamos si estaba pendiente o fallido (evitar emails duplicados)
+      if (resData && resData.status !== 'confirmed') {
         await resRef.update({ 
           status: 'confirmed', 
           paidAt: new Date().toISOString(),
           redsysResponse: params.Ds_Response,
-          redsysAuthCode: params.Ds_AuthorisationCode
+          redsysAuthCode: params.Ds_AuthorisationCode || 'N/A',
+          updatedAt: new Date().toISOString()
         });
         
-        // Recuperar datos para el email
-        const resSnap = await resRef.get();
-        const resData = resSnap.data();
-        
-        if (resData && resData.customerEmail) {
+        if (resData.customerEmail) {
           const { date, time, customerName, customerEmail, tickets, totalTickets } = resData;
 
           const emailHtml = `
@@ -263,52 +283,47 @@ app.post(['/api/redsys-webhook', '/redsys-webhook'], async (req, res) => {
             </div>
           `;
   
-          await resend.emails.send({
-            from: 'Cuevas de la Peña <info@cuevasdealajar.com>',
-            to: customerEmail,
-            subject: `🎟️ Reserva Confirmada #${orderId} - Cuevas de la Peña`,
-            html: emailHtml
-          });
-          
-          console.log(`✉️ Ticket enviado correctamente a ${customerEmail}`);
-        }
-      } catch (err: any) {
-        console.error('⚠️ Error actualizando reserva o enviando email:', err.message);
-      }
-    } else {
-      console.log(`❌ PAGO DENEGADO para ${orderId}. Marcando como 'failed' y liberando aforo.`);
-      try {
-        const resRef = db.collection('reservations').doc(orderId);
-        const resSnap = await resRef.get();
-        if (resSnap.exists) {
-          const resData = resSnap.data();
-          if (resData && resData.status === 'pending') {
-            const { date, time, totalTickets } = resData;
-            // Liberar aforo
-            const slotId = `${date}_${time}`;
-            await db.collection('slots').doc(slotId).set({ 
-              bookedCount: admin.firestore.FieldValue.increment(-Number(totalTickets)),
-              date,
-              time
-            }, { merge: true });
-            
-            await resRef.update({ 
-              status: 'failed', 
-              errorCode: params.Ds_Response,
-              updatedAt: new Date().toISOString()
+          try {
+            await resend.emails.send({
+              from: 'Cuevas de la Peña <info@cuevasdealajar.com>',
+              to: customerEmail,
+              subject: `🎟️ Reserva Confirmada #${orderId} - Cuevas de la Peña`,
+              html: emailHtml
             });
+            console.log(`✉️ Ticket enviado correctamente a ${customerEmail}`);
+          } catch (emailErr: any) {
+            console.error(`❌ Error enviando email:`, emailErr.message);
           }
         }
-      } catch (e) {
-        console.error("Error marcando fallo en DB:", e);
+      }
+    } else {
+      console.log(`❌ PAGO DENEGADO para ${orderId}. Código=${responseCode}`);
+      const resRef = db.collection('reservations').doc(orderId);
+      const resSnap = await resRef.get();
+      if (resSnap.exists) {
+        const resData = resSnap.data();
+        if (resData && resData.status === 'pending') {
+          const { date, time, totalTickets } = resData;
+          // Liberar aforo
+          const slotId = `${date}_${time}`;
+          await db.collection('slots').doc(slotId).set({ 
+            bookedCount: admin.firestore.FieldValue.increment(-Number(totalTickets)),
+            date,
+            time
+          }, { merge: true });
+          
+          await resRef.update({ 
+            status: 'failed', 
+            errorCode: responseCode,
+            updatedAt: new Date().toISOString()
+          });
+        }
       }
     }
-
-    // Redsys espera siempre un OK
     res.status(200).send("OK");
-  } catch (err) {
+  } catch (err: any) {
     console.error("🔥 Error crítico procesando webhook:", err);
-    res.status(200).send("OK-ERR"); // Respondemos OK a Redsys para que deje de reintentar si el fallo es nuestro
+    res.status(200).send("OK-ERR");
   }
 });
 

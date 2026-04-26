@@ -17,6 +17,7 @@ export default function AdminApp() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [filterByVisitDate, setFilterByVisitDate] = useState(true);
   
   // Login form states
   const [emailInput, setEmailInput] = useState('admin');
@@ -40,18 +41,23 @@ export default function AdminApp() {
   // Filtered and Sorted Reservations
   const filteredReservations = allReservations
     .filter(r => {
+      // 1. Búsqueda por texto (Nombre, Email, Localizador)
       const matchesSearch = 
+        !searchTerm ||
         r.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.customerEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.localizador?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.id?.toLowerCase().includes(searchTerm.toLowerCase());
+        r.localizador?.toLowerCase().includes(searchTerm.toLowerCase());
       
+      // 2. Filtro por Estado
       const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
       
-      return matchesSearch && matchesStatus;
+      // 3. Filtro por Fecha de Visita (Opcional)
+      const matchesVisitDate = !filterByVisitDate || r.date === dateFilter;
+      
+      return matchesSearch && matchesStatus && matchesVisitDate;
     })
     .sort((a, b) => {
-      // Priorizar fecha de registro (más recientes arriba)
+      // Ordenar por fecha de creación (createdAt) descendente: las más nuevas primero
       const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return dateB - dateA;
@@ -349,7 +355,7 @@ export default function AdminApp() {
             <div className="relative flex-1 md:flex-none md:w-64">
               <input 
                 type="text" 
-                placeholder="Buscar cliente, email o ID..."
+                placeholder="Nombre, email o localizador..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full bg-[#151515] border border-[#E5E2D9]/10 p-2.5 pl-3 text-[#E5E2D9] text-xs focus:border-[#C4A484]/50 focus:outline-none transition-colors"
@@ -360,7 +366,7 @@ export default function AdminApp() {
             <select 
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-[#151515] border border-[#E5E2D9]/10 p-2.5 text-[#E5E2D9] text-xs focus:border-[#C4A484]/50 focus:outline-none appearance-none cursor-pointer min-w-[140px]"
+              className="bg-[#151515] border border-[#E5E2D9]/10 p-2.5 text-[#E5E2D9] text-xs focus:border-[#C4A484]/50 focus:outline-none cursor-pointer min-w-[140px]"
             >
               <option value="all">Todos los Estados</option>
               <option value="confirmed">✅ Confirmados</option>
@@ -371,12 +377,21 @@ export default function AdminApp() {
 
             <div className="h-8 w-px bg-[#E5E2D9]/10 mx-1 hidden md:block"></div>
 
-            <input 
-              type="date" 
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="bg-[#151515] border border-[#E5E2D9]/20 p-2 text-[#E5E2D9] [&::-webkit-calendar-picker-indicator]:invert"
-            />
+            <div className="flex items-center gap-2 bg-[#151515] border border-[#E5E2D9]/10 p-1">
+              <input 
+                type="date" 
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="bg-transparent border-none p-1.5 text-[#E5E2D9] text-xs focus:outline-none [&::-webkit-calendar-picker-indicator]:invert"
+              />
+              <button
+                onClick={() => setFilterByVisitDate(!filterByVisitDate)}
+                title={filterByVisitDate ? "Filtrando por este día" : "Ver todas las fechas"}
+                className={`px-3 py-1.5 text-[10px] font-bold uppercase transition-colors ${filterByVisitDate ? 'bg-[#C4A484] text-[#0D0D0B]' : 'bg-[#E5E2D9]/5 text-[#E5E2D9]/50'}`}
+              >
+                {filterByVisitDate ? 'Día ON' : 'Día OFF'}
+              </button>
+            </div>
             <button 
               onClick={fetchData}
               disabled={isRefreshing}
