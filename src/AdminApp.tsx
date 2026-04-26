@@ -9,12 +9,14 @@ export default function AdminApp() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const [isBypass, setIsBypass] = useState(false);
+  
   // Data states
   const [reservations, setReservations] = useState<any[]>([]);
   const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]);
   
   // Login form states
-  const [emailInput, setEmailInput] = useState('taquilla@cuevas.com');
+  const [emailInput, setEmailInput] = useState('admin');
   const [passwordInput, setPasswordInput] = useState('');
   
   // New manual reservation form
@@ -61,8 +63,12 @@ export default function AdminApp() {
   };
 
   useEffect(() => {
+    if (isBypass) {
+      fetchData(dateFilter);
+      return;
+    }
     if (isAdmin) fetchData(dateFilter);
-  }, [dateFilter, isAdmin]);
+  }, [dateFilter, isAdmin, isBypass]);
 
   const handleCreateManual = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,12 +91,12 @@ export default function AdminApp() {
       customerEmail: newRes.customerEmail || 'manual@taquilla.local',
       tickets: newRes.tickets,
       totalTickets: total,
-      amount: 0, // In taquilla, you might not track € here, or calculate it.
+      amount: 0, 
       source: 'manual',
       status: 'confirmed',
       localizador: 'MAN' + String(Math.floor(Date.now() / 1000)).substring(4, 12),
       createdAt: Date.now(),
-      ownerId: user?.uid
+      ownerId: isBypass ? 'bypass-admin' : user?.uid
     };
 
     try {
@@ -117,6 +123,13 @@ export default function AdminApp() {
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Bypass for user who doesn't want to use Google or Firebase Auth Email provider
+    if (emailInput === 'admin' && passwordInput === 'Alajar2024!') {
+      setIsBypass(true);
+      return;
+    }
+
     try {
       await loginWithEmail(emailInput, passwordInput);
     } catch(err: any) {
@@ -126,7 +139,7 @@ export default function AdminApp() {
 
   if (loading) return <div className="min-h-screen bg-[#0D0D0B] text-white flex items-center justify-center">Cargando...</div>;
 
-  if (!user || !isAdmin) {
+  if (!isBypass && (!user || !isAdmin)) {
     return (
       <div className="min-h-screen bg-[#0D0D0B] text-[#E5E2D9] flex flex-col items-center justify-center p-4">
         <Mountain className="w-16 h-16 text-[#C4A484] mb-8" />
@@ -138,7 +151,7 @@ export default function AdminApp() {
             <div>
               <label className="block text-xs uppercase text-[#E5E2D9]/50 mb-1">Usuario / Email</label>
               <input 
-                type="email" 
+                type="text" 
                 value={emailInput}
                 onChange={e => setEmailInput(e.target.value)}
                 className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/20 p-3 text-[#E5E2D9] focus:outline-none focus:border-[#C4A484]"
@@ -192,8 +205,14 @@ export default function AdminApp() {
           <span className="font-serif text-xl tracking-wide">Panel Taquilla</span>
         </div>
         <div className="flex items-center gap-4 text-sm">
-          <span className="text-[#E5E2D9]/60">{user.email}</span>
-          <button onClick={logout} className="text-[#c48484] hover:text-red-400 flex items-center gap-1">
+          <span className="text-[#E5E2D9]/60">{isBypass ? 'Administrador Local' : user?.email}</span>
+          <button 
+            onClick={() => {
+              if (isBypass) setIsBypass(false);
+              else logout();
+            }} 
+            className="text-[#c48484] hover:text-red-400 flex items-center gap-1"
+          >
             <LogOut className="w-4 h-4" /> Salir
           </button>
         </div>
