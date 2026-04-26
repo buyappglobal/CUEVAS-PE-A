@@ -286,9 +286,11 @@ app.post(['/api/redsys-webhook', '/redsys-webhook'], async (req, res) => {
             const { date, time, totalTickets } = resData;
             // Liberar aforo
             const slotId = `${date}_${time}`;
-            await db.collection('slots').doc(slotId).update({ 
-              bookedCount: admin.firestore.FieldValue.increment(-Number(totalTickets)) 
-            });
+            await db.collection('slots').doc(slotId).set({ 
+              bookedCount: admin.firestore.FieldValue.increment(-Number(totalTickets)),
+              date,
+              time
+            }, { merge: true });
             
             await resRef.update({ 
               status: 'failed', 

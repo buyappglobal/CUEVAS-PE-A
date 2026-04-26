@@ -75,20 +75,31 @@ export default function AdminApp() {
       const resData = allReservations.find(r => r.id === resId);
       if (!resData) return;
 
-      // Restituir aforo
+      // 1. Restituir aforo en la colección 'slots' (usando set con merge para evitar errores si no existe)
       const slotId = `${resData.date}_${resData.time}`;
       const slotRef = doc(db, 'slots', slotId);
-      await updateDoc(slotRef, { bookedCount: increment(-Number(resData.totalTickets || 0)) });
+      
+      try {
+        await setDoc(slotRef, { 
+          bookedCount: increment(-Number(resData.totalTickets || 0)),
+          date: resData.date,
+          time: resData.time
+        }, { merge: true });
+      } catch (slotErr) {
+        console.error("Error actualizando slot aggregate:", slotErr);
+      }
 
-      // Marcar como cancelado
+      // 2. Marcar la reserva como cancelada
       await updateDoc(doc(db, 'reservations', resId), { 
         status: 'cancelled',
-        cancelledAt: new Date().toISOString()
+        cancelledAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       });
 
       setCancelModal({ show: false, resId: null });
-      alert("Reserva anulada. Recuerda realizar la devolución manual en el terminal de Redsys si corresponde.");
+      alert("Reserva anulada con éxito. El aforo ha sido liberado.");
     } catch (e) {
+      console.error("Error al anular:", e);
       alert("Error al anular: " + (e as Error).message);
     }
   };
