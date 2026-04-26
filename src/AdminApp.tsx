@@ -32,6 +32,7 @@ export default function AdminApp() {
   );
 
   const [cancelModal, setCancelModal] = useState<{show: boolean, resId: string | null}>({ show: false, resId: null });
+  const [showNewModal, setShowNewModal] = useState(false);
 
   const handleCancelReservation = async (resId: string) => {
     try {
