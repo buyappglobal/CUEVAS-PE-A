@@ -81,13 +81,19 @@ export default function AdminApp() {
       const resData = allReservations.find(r => r.id === resId);
       if (!resData) return;
 
-      // 1. Restituir aforo en la colección 'slots' (usando set con merge para evitar errores si no existe)
+      // 1. Restituir aforo en la colección 'slots'
       const slotId = `${resData.date}_${resData.time}`;
       const slotRef = doc(db, 'slots', slotId);
       
+      // Asegurarnos de tener el número de tickets (sumar manualmente si no existe el campo totalTickets)
+      let ticketsToRelease = Number(resData.totalTickets || 0);
+      if (!ticketsToRelease && resData.tickets) {
+        ticketsToRelease = Number(resData.tickets.adult || 0) + Number(resData.tickets.reduced || 0) + Number(resData.tickets.childFree || 0);
+      }
+      
       try {
         await setDoc(slotRef, { 
-          bookedCount: increment(-Number(resData.totalTickets || 0)),
+          bookedCount: increment(-ticketsToRelease),
           date: resData.date,
           time: resData.time
         }, { merge: true });

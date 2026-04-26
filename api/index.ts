@@ -114,7 +114,9 @@ app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
 
     // Parámetros JSON para Redsys. 
     const isProduction = REDSYS_URL.includes('sis.redsys.es');
-    const domain = isProduction ? 'cuevasdealajar.com' : req.get('host');
+    const host = req.get('host') || 'cuevasdealajar.com';
+    // Si estamos en producción, preferimos el host actual que esté usando el usuario
+    const domain = host;
     
     const params = {
       Ds_Merchant_Amount: amountStr,
@@ -128,6 +130,8 @@ app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
       Ds_Merchant_UrlKO: `https://${domain}?payment=error&order=${orderId}`,
       Ds_Merchant_ConsumerLanguage: '001'
     };
+
+    console.log(`🔗 Webhook URL enviada a Redsys: ${params.Ds_Merchant_MerchantURL}`);
 
     // PERSISTENCIA INICIAL: Guardar la reserva en estado "pending" para visibilidad inmediata en el CRM
     try {
