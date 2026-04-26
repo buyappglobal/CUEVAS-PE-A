@@ -97,12 +97,14 @@ app.post(['/api/create-payment', '/create-payment'], (req, res) => {
       Ds_Merchant_MerchantCode: MERCHANT_CODE, // 369364104
       Ds_Merchant_Currency: '978',
       Ds_Merchant_TransactionType: '0',
-      Ds_Merchant_Terminal: '1',               // Ponlo exactamente como sale en el panel
+      Ds_Merchant_Terminal: '001',             // Usamos 3 dígitos (001) para mayor compatibilidad
       Ds_Merchant_MerchantURL: `https://www.cuevasdealajar.com/api/redsys-webhook`,
       Ds_Merchant_UrlOK: `https://www.cuevasdealajar.com?payment=success`,
       Ds_Merchant_UrlKO: `https://www.cuevasdealajar.com?payment=error`,
       Ds_Merchant_ConsumerLanguage: '001'
     };
+
+    console.log(`DEBUG: Parámetros del pago (Pedido ${orderId}):`, JSON.stringify(params));
 
     const paramsBase64 = Buffer.from(JSON.stringify(params), 'utf8').toString('base64');
 
@@ -110,7 +112,7 @@ app.post(['/api/create-payment', '/create-payment'], (req, res) => {
     const transactionKey = encrypt3DES(orderId, ACTUAL_SECRET);
     const signature = mac256(paramsBase64, transactionKey);
 
-    console.log(`✅ Firma generada para el pedido ${orderId}`);
+    console.log(`✅ Firma generada [${signature}] para el pedido ${orderId}`);
 
     // Devolvemos el pack completo al Frontend
     res.json({
