@@ -4,119 +4,94 @@ import path from 'path';
 import cors from 'cors';
 import { Resend } from 'resend';
 import admin from 'firebase-admin';
+import { readFileSync } from 'fs';
 
-// Initialize Firebase Admin
+// --- Initialization ---
+let db: admin.firestore.Firestore;
+let resend: Resend;
+
+const firebaseConfigPath = path.join(process.cwd(), 'firebase-applet-config.json');
+let firebaseConfig: any = {};
+try {
+  firebaseConfig = JSON.parse(readFileSync(firebaseConfigPath, 'utf8'));
+} catch (e) {
+  console.error("❌ Could not read firebase-applet-config.json", e);
+}
+
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
-const db = admin.firestore();
 
-const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_fallback_so_it_doesnt_crash');
+try {
+  const dbId = firebaseConfig.firestoreDatabaseId;
+  db = admin.firestore(dbId);
+  console.log(`✅ Firebase Admin initialized with DB: ${dbId}`);
+} catch (e) {
+  console.error("⚠️ Error initializing Firestore with specific ID, using default", e);
+  db = admin.firestore();
+}
+
+resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_fallback_so_it_doesnt_crash');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
 app.use(cors());
 app.use(express.json());
-// Webhooks urlencoded payloads sometimes
-app.use(express.urlencoded({ extended: true })); 
+app.use(express.urlencoded({ extended: true }));
 
-// --- Configuración de Redsys ---
+// --- Redsys Config ---
 const REDSYS_SECRET_KEY = (process.env.REDSYS_SECRET_KEY || '').trim();
 const MERCHANT_CODE = (process.env.REDSYS_MERCHANT_CODE || '369364104').trim();
-
-// Si el usuario ha configurado su propia clave, probablemente quiera ir a Producción (excepto si especifica URL)
 const REDSYS_URL = process.env.REDSYS_URL || (REDSYS_SECRET_KEY && REDSYS_SECRET_KEY !== 'sq7HjrUOBfKmC576ILgskD5srU870gJ7' 
   ? 'https://sis.redsys.es/sis/realizarPago' 
   : 'https://sis-t.redsys.es:25443/sis/realizarPago');
 
 const ACTUAL_SECRET = REDSYS_SECRET_KEY || 'sq7HjrUOBfKmC576ILgskD5srU870gJ7';
 
-// Función para encriptar la MAC usando 3DES (Triple DES)
 function encrypt3DES(orderId: string, secret: string) {
   const decodedSecret = Buffer.from(secret, 'base64');
-  
-  // Ajuste de seguridad para Triple DES: Redsys espera 24 bytes (192 bits).
-  // Si la clave tiene 32 bytes (común en SHA256), usamos los primeros 24.
-  // Si tiene 16 bytes, se suele usar el esquema K1-K2-K1.
   let keyBytes: Buffer;
   if (decodedSecret.length >= 24) {
     keyBytes = decodedSecret.slice(0, 24);
   } else if (decodedSecret.length === 16) {
     keyBytes = Buffer.concat([decodedSecret, decodedSecret.slice(0, 8)]);
   } else {
-    // Si la clave tiene otra longitud, rellenamos con ceros hasta 24
     keyBytes = Buffer.alloc(24, 0);
     decodedSecret.copy(keyBytes);
   }
-
   const iv = Buffer.alloc(8, 0); 
   const cipher = crypto.createCipheriv('des-ede3-cbc', keyBytes, iv);
   cipher.setAutoPadding(false);
-
-  // Redsys requiere padding de ceros hasta un múltiplo de 8 bytes para el ID de pedido
-  // Para 12 caracteres, el buffer de salida debe ser de 16 bytes.
   const orderBuffer = Buffer.alloc(Math.ceil(orderId.length / 8) * 8, 0);
   orderBuffer.write(orderId, 'utf8');
-
   return Buffer.concat([cipher.update(orderBuffer), cipher.final()]);
 }
 
-// Función para generar la firma HMAC-SHA256 final (especificación Redsys)
 function mac256(data: string, key: Buffer) {
   return crypto.createHmac('sha256', key).update(data, 'utf8').digest('base64');
 }
 
-// --- Endpoints de la API ---
-app.all('*', (req, res, next) => {
-  if (req.method === 'POST' && req.path === '/api/create-payment') {
-    if (!process.env.REDSYS_SECRET_KEY) {
-      console.warn('⚠️ ADVERTENCIA: REDSYS_SECRET_KEY no detectada. Usando clave de pruebas.');
-    } else {
-      console.log('🛡️ Usando REDSYS_SECRET_KEY configurada por el usuario.');
-    }
-  }
-  next();
+// --- Endpoints ---
+app.get(['/api/health', '/health'], (req, res) => {
+  res.json({ 
+    status: 'ok',
+    dbInited: !!db,
+    resendInited: !!resend,
+    config: { merchantCode: MERCHANT_CODE, hasKey: !!process.env.REDSYS_SECRET_KEY }
+  });
 });
 
-// Middleware para normalizar la ruta
-app.use((req, res, next) => {
-  next();
-});
-
-    // 0. Health check
-    app.get(['/api/health', '/health'], (req, res) => {
-      res.json({ 
-        status: 'ok', 
-        env: {
-          hasSecret: !!process.env.REDSYS_SECRET_KEY,
-          merchantCode: MERCHANT_CODE,
-          nodeEnv: process.env.NODE_ENV
-        }
-      });
-    });
-
-// 1. Endpoint para iniciar el pago
 app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
   try {
     const { amount, tickets, date, time, customer, orderId: incomingOrderId } = req.body;
-    
-    // Usar el orderId que viene del frontend o generar uno si falta
     const orderId = incomingOrderId || new Date().toISOString().replace(/\D/g, '').slice(0, 12);
-    
-    // Importe multiplicado x 100 para ser céntimos (exigencia de Redsys)
     const amountStr = Math.round(amount * 100).toString();
     
-    console.log(`🎟️ Invocando Pago - Pedido: ${orderId} | Total: ${amount}€ (${amountStr} cts)`);
+    console.log(`🎟️ Invocando Pago - Pedido: ${orderId} | Total: ${amount}€`);
     
-    const keyBytes = Buffer.from(ACTUAL_SECRET, 'base64');
-    console.log(`🔑 Clave usada (Longitud decodificada): ${keyBytes.length} bytes`);
-
-    // Parámetros JSON para Redsys. 
     const isProduction = REDSYS_URL.includes('sis.redsys.es');
-    const host = req.get('host') || 'cuevasdealajar.com';
-    // Si estamos en producción, preferimos el host actual que esté usando el usuario
-    const domain = host;
+    const domain = req.get('host') || 'cuevasdealajar.com';
     
     const params = {
       Ds_Merchant_Amount: amountStr,
@@ -131,13 +106,9 @@ app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
       Ds_Merchant_ConsumerLanguage: '001'
     };
 
-    console.log(`🔗 Webhook URL enviada a Redsys: ${params.Ds_Merchant_MerchantURL}`);
-
-    // PERSISTENCIA INICIAL: Guardar la reserva en estado "pending" para visibilidad inmediata en el CRM
+    // Pre-save to CRM
     try {
       const totalTickets = (tickets.adult || 0) + (tickets.reduced || 0) + (tickets.childFree || 0);
-      
-      // Intentar guardar la reserva. Lo hacemos de forma que no bloquee el pago si falla la red con la DB
       await db.collection('reservations').doc(orderId).set({
         localizador: orderId,
         date,
@@ -151,10 +122,7 @@ app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
         source: 'online',
         createdAt: new Date().toISOString()
       }, { merge: true });
-      
-      console.log(`📡 Reserva registrada (Admin SDK) como PENDIENTE: ${orderId}`);
-      
-      // BLOQUEAR AFORO: Incrementar el contador de ocupación inmediatamente
+
       const slotId = `${date}_${time}`;
       const slotRef = db.collection('slots').doc(slotId);
       const slotSnap = await slotRef.get();
@@ -163,206 +131,109 @@ app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
       } else {
         await slotRef.set({ date, time, bookedCount: totalTickets }, { merge: true });
       }
-      console.log(`📉 Aforo actualizado para ${slotId} (+${totalTickets})`);
+      console.log(`✅ DB: Reserva ${orderId} pre-registrada y aforo bloqueado`);
     } catch (dbErr: any) {
-      console.error('⚠️ ALERTA: No se pudo pre-registrar reserva en DB, pero continuamos a Redsys:', dbErr.message);
-      // NO lanzamos Error para no bloquear al cliente. El webhook recuperará la reserva después.
+      console.error('⚠️ Error pre-registrando en DB:', dbErr.message);
     }
 
     const paramsBase64 = Buffer.from(JSON.stringify(params), 'utf8').toString('base64');
-
-    // Generar la firma segura (Server Side)
     const transactionKey = encrypt3DES(orderId, ACTUAL_SECRET);
     const signature = mac256(paramsBase64, transactionKey);
 
-    console.log(`✅ Firma de ida generada para Pedido ${orderId}`);
-
-    // Devolvemos el pack completo al Frontend
-    res.json({
-      url: REDSYS_URL,
-      paramsBase64,
-      signature,
-      version: 'HMAC_SHA256_V1'
-    });
+    res.json({ url: REDSYS_URL, paramsBase64, signature, version: 'HMAC_SHA256_V1' });
   } catch (error) {
-    console.error('❌ Error al inicializar Redsys:', error);
+    console.error('❌ Error Redsys Init:', error);
     res.status(500).json({ error: 'Fallo al procesar parámetros de pago' });
   }
 });
 
-// 2. Endpoint oculto (Webhook) donde Redsys confirmará si el pago fue exitoso
 app.post(['/api/redsys-webhook', '/redsys-webhook'], async (req, res) => {
-  const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] 📥 WEBHOOK REDSYS RECIBIDO`);
-  
-  // Redsys envía los parámetros en el body (POST urlencoded)
   const Ds_MerchantParameters = req.body.Ds_MerchantParameters;
   const Ds_Signature = req.body.Ds_Signature;
 
-  if (!Ds_MerchantParameters || !Ds_Signature) {
-    console.warn("⚠️ Webhook llamado sin parámetros o sin firma");
-    return res.status(200).send("OK-NO-PARAMS");
-  }
+  if (!Ds_MerchantParameters || !Ds_Signature) return res.status(200).send("OK-NO-PARAMS");
 
   try {
-    // 1. Validar la firma de Redsys para seguridad
     const decodedParamsStr = Buffer.from(Ds_MerchantParameters, 'base64').toString('utf8');
     const params = JSON.parse(decodedParamsStr);
     const orderId = params.Ds_Order || params.Ds_Merchant_Order;
 
-    if (!orderId) throw new Error("No order ID found in webhook params");
-
-    // Re-generar firma para comparar
     const transactionKey = encrypt3DES(orderId, ACTUAL_SECRET);
     const expectedSignature = mac256(Ds_MerchantParameters, transactionKey);
 
-    // Comparación robusta
     if (Ds_Signature.replace(/_/g, '/').replace(/-/g, '+') !== expectedSignature) {
-      console.error(`❌ FIRMA INVÁLIDA en Webhook para Pedido ${orderId}`);
-      // Respondemos OK para que Redsys no reintente algo que nunca será válido
+      console.error(`❌ FIRMA INVÁLIDA Webhook: ${orderId}`);
       return res.status(200).send("OK-BAD-SIG"); 
     }
 
     const responseCode = params.Ds_Response;
-    const responseNum = parseInt(responseCode, 10);
-    const isSuccess = responseNum >= 0 && responseNum <= 99;
-
-    console.log(`🔔 Webhook Redsys [${orderId}]: Código=${responseCode} | Éxito=${isSuccess}`);
+    const isSuccess = parseInt(responseCode, 10) <= 99;
 
     if (isSuccess) {
-      console.log(`✅ PAGO CONFIRMADO para ${orderId}.`);
-      
       const resRef = db.collection('reservations').doc(orderId);
       const resSnap = await resRef.get();
       
-      if (!resSnap.exists) {
-        console.error(`❌ ERROR: Reserva ${orderId} no existe en Firestore al intentar confirmar.`);
-        return res.status(200).send("OK-NO-RES");
-      }
-
-      const resData = resSnap.data();
-      
-      // Solo actualizamos si estaba pendiente o fallido (evitar emails duplicados)
-      if (resData && resData.status !== 'confirmed') {
-        await resRef.update({ 
-          status: 'confirmed', 
-          paidAt: new Date().toISOString(),
-          redsysResponse: params.Ds_Response,
-          redsysAuthCode: params.Ds_AuthorisationCode || 'N/A',
-          updatedAt: new Date().toISOString()
-        });
-        
-        if (resData.customerEmail) {
-          const { date, time, customerName, customerEmail, tickets, totalTickets } = resData;
-
-          const emailHtml = `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #151515; padding: 20px;">
-              <div style="background-color: #151515; padding: 30px; text-align: center;">
-                <h1 style="color: #C4A484; font-family: serif; margin: 0;">Cuevas de la Peña</h1>
-                <p style="color: rgba(229, 226, 217, 0.6); margin-top: 5px;">Arias Montano</p>
-              </div>
-              
-              <div style="padding: 30px; border: 1px solid #eee; border-top: none;">
-                <h2 style="font-family: serif; margin-top: 0; color: #151515;">¡Reserva Confirmada!</h2>
-                <p>Hola <strong>${customerName}</strong>,</p>
-                <p>Tu pago ha sido procesado con éxito. Aquí tienes tus entradas:</p>
-                
-                <div style="background-color: #f9f9f9; padding: 20px; border-left: 4px solid #C4A484; margin: 20px 0;">
-                  <h3 style="margin-top: 0; color: #C4A484; text-transform: uppercase; font-size: 14px;">Detalles de la Visita</h3>
-                  <p style="margin: 5px 0;"><strong>Localizador:</strong> #${orderId}</p>
-                  <p style="margin: 5px 0;"><strong>Fecha:</strong> ${date}</p>
-                  <p style="margin: 5px 0;"><strong>Hora:</strong> ${time}</p>
-                  <p style="margin: 5px 0;"><strong>Total tickets:</strong> ${totalTickets}</p>
-                  <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;" />
-                  <p style="font-size: 13px; color: #666; margin: 0;">
-                    Adultos: ${tickets.adult || 0} | Reducidas: ${tickets.reduced || 0} | Menores (Gratis): ${tickets.childFree || 0}
-                  </p>
-                </div>
-  
-                <p>Presenta este email (digital o impreso) en la entrada. Recomendamos llegar 10-15 minutos antes.</p>
-                <p style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; font-size: 12px; color: #888; text-align: center;">
-                  Si necesitas ayuda, contáctanos en info@cuevasdealajar.com
-                </p>
-              </div>
-            </div>
-          `;
-  
-          try {
-            await resend.emails.send({
-              from: 'Cuevas de la Peña <info@cuevasdealajar.com>',
-              to: customerEmail,
-              subject: `🎟️ Reserva Confirmada #${orderId} - Cuevas de la Peña`,
-              html: emailHtml
-            });
-            console.log(`✉️ Ticket enviado correctamente a ${customerEmail}`);
-          } catch (emailErr: any) {
-            console.error(`❌ Error enviando email:`, emailErr.message);
+      if (resSnap.exists) {
+        const resData = resSnap.data();
+        if (resData && resData.status !== 'confirmed') {
+          await resRef.update({ 
+            status: 'confirmed', 
+            paidAt: new Date().toISOString(),
+            redsysResponse: responseCode,
+            updatedAt: new Date().toISOString()
+          });
+          
+          // Send Email
+          if (resData.customerEmail && process.env.RESEND_API_KEY) {
+            try {
+              await resend.emails.send({
+                from: 'Cuevas de la Peña <info@cuevasdealajar.com>',
+                to: resData.customerEmail,
+                subject: `🎟️ Reserva Confirmada #${orderId}`,
+                html: `<h1>¡Reserva Confirmada!</h1><p>Hola ${resData.customerName}, tu visita para el ${resData.date} a las ${resData.time} ha sido confirmada.</p>`
+              });
+              console.log(`✉️ Email enviado a ${resData.customerEmail}`);
+            } catch (e) {
+              console.error("❌ Email error:", e);
+            }
           }
         }
       }
     } else {
-      console.log(`❌ PAGO DENEGADO para ${orderId}. Código=${responseCode}`);
       const resRef = db.collection('reservations').doc(orderId);
       const resSnap = await resRef.get();
       if (resSnap.exists) {
         const resData = resSnap.data();
         if (resData && resData.status === 'pending') {
-          const { date, time, totalTickets } = resData;
-          // Liberar aforo
-          const slotId = `${date}_${time}`;
-          await db.collection('slots').doc(slotId).set({ 
-            bookedCount: admin.firestore.FieldValue.increment(-Number(totalTickets)),
-            date,
-            time
-          }, { merge: true });
-          
-          await resRef.update({ 
-            status: 'failed', 
-            errorCode: responseCode,
-            updatedAt: new Date().toISOString()
+          const slotId = `${resData.date}_${resData.time}`;
+          await db.collection('slots').doc(slotId).update({ 
+            bookedCount: admin.firestore.FieldValue.increment(-resData.totalTickets) 
           });
+          await resRef.update({ status: 'failed', errorCode: responseCode });
         }
       }
     }
     res.status(200).send("OK");
-  } catch (err: any) {
-    console.error("🔥 Error crítico procesando webhook:", err);
+  } catch (err) {
+    console.error("🔥 Webhook error:", err);
     res.status(200).send("OK-ERR");
   }
 });
 
-// --- Middleware de Aplicación Web (Vite + React) ---
-
-async function startServer() {
-  if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
+// --- Vite / Static ---
+async function start() {
+  if (process.env.NODE_ENV !== 'production') {
+    const { createServer } = await import('vite');
+    const vite = await createServer({ server: { middlewareMode: true }, appType: 'spa' });
     app.use(vite.middlewares);
   } else {
-    // En producción (incluyendo Vercel), servimos estáticos si no lo hace el host
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      // Si la URL empieza por /api y llega aquí, es que no se encontró la ruta
-      if (req.url.startsWith('/api')) {
-        console.warn(`⚠️ Ruta API no encontrada: ${req.url}`);
-        return res.status(404).json({ error: 'API route not found' });
-      }
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    app.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')));
   }
-
-  // En Vercel no llamamos a listen, exportamos la app para que Serverless functions escuche.
-  if (!process.env.VERCEL) {
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`✅ Server up and running on http://0.0.0.0:${PORT}`);
-    });
-  }
+  app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server on port ${PORT}`));
 }
 
-startServer();
+start();
 
 export default app;
