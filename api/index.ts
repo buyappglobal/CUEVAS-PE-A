@@ -17,7 +17,6 @@ app.use(express.urlencoded({ extended: true }));
 // --- Configuración de Redsys ---
 const REDSYS_SECRET_KEY = (process.env.REDSYS_SECRET_KEY || '').trim();
 const MERCHANT_CODE = (process.env.REDSYS_MERCHANT_CODE || '369364104').trim();
-const TERMINAL = '1';
 
 // Si el usuario ha configurado su propia clave, probablemente quiera ir a Producción (excepto si especifica URL)
 const REDSYS_URL = process.env.REDSYS_URL || (REDSYS_SECRET_KEY && REDSYS_SECRET_KEY !== 'sq7HjrUOBfKmC576ILgskD5srU870gJ7' 
@@ -29,8 +28,22 @@ const ACTUAL_SECRET = REDSYS_SECRET_KEY || 'sq7HjrUOBfKmC576ILgskD5srU870gJ7';
 // Función para encriptar la MAC usando 3DES (Triple DES)
 function encrypt3DES(orderId: string, secret: string) {
   const decodedSecret = Buffer.from(secret, 'base64');
+  
+  // Ajuste de seguridad: 3DES requiere exactamente 24 bytes
+  let key: Buffer;
+  if (decodedSecret.length >= 24) {
+    key = decodedSecret.slice(0, 24);
+  } else if (decodedSecret.length === 16) {
+    // Si es una clave de 16 bytes, se usa el esquema K1-K2-K1
+    key = Buffer.concat([decodedSecret, decodedSecret.slice(0, 8)]);
+  } else {
+    // En otros casos, rellenamos con ceros hasta 24 (menos común)
+    key = Buffer.alloc(24, 0);
+    decodedSecret.copy(key);
+  }
+
   const iv = Buffer.alloc(8, 0); 
-  const cipher = crypto.createCipheriv('des-ede3-cbc', decodedSecret, iv);
+  const cipher = crypto.createCipheriv('des-ede3-cbc', key, iv);
   cipher.setAutoPadding(false);
 
   // Redsys requiere padding de ceros hasta un múltiplo de 8 bytes para el ID de pedido
@@ -54,7 +67,13 @@ function mac256(data: string, key: Buffer) {
 
 // --- Endpoints de la API ---
 app.all('*', (req, res, next) => {
-  console.log(`🔍 SERVER REQUEST: ${req.method} ${req.url} | Path: ${req.path}`);
+  if (req.method === 'POST' && req.path === '/api/create-payment') {
+    if (!process.env.REDSYS_SECRET_KEY) {
+      console.warn('⚠️ ADVERTENCIA: REDSYS_SECRET_KEY no detectada. Usando clave de pruebas.');
+    } else {
+      console.log('🛡️ Usando REDSYS_SECRET_KEY configurada por el usuario.');
+    }
+  }
   next();
 });
 
@@ -63,18 +82,17 @@ app.use((req, res, next) => {
   next();
 });
 
-// 0. Health check
-app.get(['/api/health', '/health'], (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    env: {
-      hasSecret: !!process.env.REDSYS_SECRET_KEY,
-      merchantCode: MERCHANT_CODE,
-      terminal: TERMINAL,
-      nodeEnv: process.env.NODE_ENV
-    }
-  });
-});
+    // 0. Health check
+    app.get(['/api/health', '/health'], (req, res) => {
+      res.json({ 
+        status: 'ok', 
+        env: {
+          hasSecret: !!process.env.REDSYS_SECRET_KEY,
+          merchantCode: MERCHANT_CODE,
+          nodeEnv: process.env.NODE_ENV
+        }
+      });
+    });
 
 // 1. Endpoint para iniciar el pago
 app.post(['/api/create-payment', '/create-payment'], (req, res) => {
@@ -97,7 +115,7 @@ app.post(['/api/create-payment', '/create-payment'], (req, res) => {
       Ds_Merchant_MerchantCode: MERCHANT_CODE, // 369364104
       Ds_Merchant_Currency: '978',
       Ds_Merchant_TransactionType: '0',
-      Ds_Merchant_Terminal: '001',             // Usamos 3 dígitos (001) para mayor compatibilidad
+      Ds_Merchant_Terminal: '1',               // Volvemos a '1' para máxima compatibilidad
       Ds_Merchant_MerchantURL: `https://www.cuevasdealajar.com/api/redsys-webhook`,
       Ds_Merchant_UrlOK: `https://www.cuevasdealajar.com?payment=success`,
       Ds_Merchant_UrlKO: `https://www.cuevasdealajar.com?payment=error`,
