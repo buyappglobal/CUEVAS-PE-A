@@ -12,7 +12,7 @@ export default function AdminApp() {
   const [isBypass, setIsBypass] = useState(false);
   
   // Data states
-  const [reservations, setReservations] = useState<any[]>([]);
+  const [allReservations, setAllReservations] = useState<any[]>([]);
   const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]);
   
   // Login form states
@@ -37,7 +37,7 @@ export default function AdminApp() {
           const adminDoc = await getDoc(doc(db, 'admins', u.uid));
           setIsAdmin(adminDoc.exists());
           if (adminDoc.exists()) {
-            fetchData(dateFilter);
+            fetchData();
           }
         } catch (e) {
           console.error(e);
@@ -51,12 +51,13 @@ export default function AdminApp() {
     return unsub;
   }, []);
 
-  const fetchData = async (d: string) => {
+  const fetchData = async () => {
     try {
-      const q = query(collection(db, 'reservations'), where('date', '==', d));
+      // Obtenemos todas las reservas para tener la lista completa
+      const q = query(collection(db, 'reservations'));
       const snap = await getDocs(q);
       const res = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setReservations(res);
+      setAllReservations(res);
     } catch (e) {
       console.error(e);
     }
@@ -64,11 +65,14 @@ export default function AdminApp() {
 
   useEffect(() => {
     if (isBypass) {
-      fetchData(dateFilter);
+      fetchData();
       return;
     }
-    if (isAdmin) fetchData(dateFilter);
-  }, [dateFilter, isAdmin, isBypass]);
+    if (isAdmin) fetchData();
+  }, [isAdmin, isBypass]);
+
+  // Reservas filtradas por el día seleccionado (solo para el dashboard de aforo)
+  const dayReservations = allReservations.filter(r => r.date === dateFilter);
 
   const handleCreateManual = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,7 +80,7 @@ export default function AdminApp() {
     if (total === 0) return alert("Selecciona tickets");
 
     // Check capacity locally first
-    const currentBooked = reservations
+    const currentBooked = dayReservations
       .filter(r => r.time === newRes.time)
       .reduce((sum, r) => sum + (r.totalTickets || 0), 0);
     
@@ -114,7 +118,7 @@ export default function AdminApp() {
       }
 
       setShowNewModal(false);
-      fetchData(dateFilter);
+      fetchData();
       alert("Reserva manual creada con éxito.");
     } catch (err: any) {
       alert("Error: " + err.message);
@@ -188,10 +192,10 @@ export default function AdminApp() {
     );
   }
 
-  // Aggregate capacities from reservations directly to show the operator
+  // Aggregate capacities from dayReservations for active dashboard
   const slots = ['11:00', '12:30', '16:00'];
   const capacities = slots.reduce((acc, slot) => {
-    const slotRes = reservations.filter(r => r.time === slot);
+    const slotRes = dayReservations.filter(r => r.time === slot);
     const booked = slotRes.reduce((sum, r) => sum + (Number(r.totalTickets) || 0), 0);
     acc[slot] = { booked, remaining: Math.max(0, 30 - booked) };
     return acc;
@@ -268,7 +272,7 @@ export default function AdminApp() {
           <table className="w-full text-left text-sm">
             <thead className="bg-[#0D0D0B] text-[#E5E2D9]/50 uppercase tracking-wider text-[10px] border-b border-[#E5E2D9]/10">
               <tr>
-                <th className="p-4">Hora</th>
+                <th className="p-4">Fecha/Hora</th>
                 <th className="p-4">Localizador</th>
                 <th className="p-4">Cliente</th>
                 <th className="p-4">Tickets (A/R/I)</th>
@@ -278,16 +282,24 @@ export default function AdminApp() {
               </tr>
             </thead>
             <tbody>
-              {reservations.length === 0 ? (
+              {allReservations.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="p-8 text-center text-[#E5E2D9]/40 italic">
-                    No hay reservas registradas en esta fecha.
+                    No hay reservas registradas en el sistema.
                   </td>
                 </tr>
               ) : (
-                reservations.sort((a,b) => a.time.localeCompare(b.time)).map(r => (
+                allReservations.sort((a,b) => {
+                  // Ordenar por fecha y luego hora descendente (más recientes arriba)
+                  const dateCompare = b.date.localeCompare(a.date);
+                  if (dateCompare !== 0) return dateCompare;
+                  return b.time.localeCompare(a.time);
+                }).map(r => (
                   <tr key={r.id} className="border-b border-[#E5E2D9]/5 hover:bg-[#E5E2D9]/5 transition-colors">
-                    <td className="p-4 font-mono text-[#C4A484]">{r.time}</td>
+                    <td className="p-4 whitespace-nowrap">
+                      <div className="font-mono text-[#C4A484]">{r.date}</div>
+                      <div className="text-xs text-[#E5E2D9]/60">{r.time}</div>
+                    </td>
                     <td className="p-4 font-mono text-xs text-[#E5E2D9]/50">#{r.localizador || 'N/A'}</td>
                     <td className="p-4">
                       <div>{r.customerName}</div>
