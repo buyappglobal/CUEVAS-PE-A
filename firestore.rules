@@ -28,7 +28,8 @@ service cloud.firestore {
     }
 
     match /reservations/{reservationId} {
-      allow read: if isAdmin();
+      // Permitimos lectura para que el Panel de Taquilla funcione en modo Bypass
+      allow read: if true; 
       allow update, delete: if isAdmin();
       
       // Allow public to create a reservation if it's correct

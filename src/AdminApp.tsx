@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { db, auth, loginWithGoogle, loginWithEmail, logout } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, query, getDocs, doc, getDoc, setDoc, updateDoc, increment, where } from 'firebase/firestore';
-import { Calendar, Clock, Ticket, Users, FileText, CheckCircle, Plus, Trash2, LogOut, Mountain, X } from 'lucide-react';
+import { collection, query, getDocs, doc, getDoc, setDoc, updateDoc, increment, where, onSnapshot } from 'firebase/firestore';
+import { Calendar, Clock, Ticket, Users, FileText, CheckCircle, Plus, Trash2, LogOut, Mountain, X, RefreshCw } from 'lucide-react';
 
 export default function AdminApp() {
   const [user, setUser] = useState<User | null>(null);
@@ -14,6 +14,7 @@ export default function AdminApp() {
   // Data states
   const [allReservations, setAllReservations] = useState<any[]>([]);
   const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Login form states
   const [emailInput, setEmailInput] = useState('admin');
@@ -52,6 +53,7 @@ export default function AdminApp() {
   }, []);
 
   const fetchData = async () => {
+    setIsRefreshing(true);
     try {
       // Obtenemos todas las reservas para tener la lista completa
       const q = query(collection(db, 'reservations'));
@@ -60,15 +62,31 @@ export default function AdminApp() {
       setAllReservations(res);
     } catch (e) {
       console.error(e);
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
     }
   };
 
   useEffect(() => {
-    if (isBypass) {
-      fetchData();
-      return;
+    let unsub: (() => void) | undefined;
+
+    const startListening = () => {
+      const q = query(collection(db, 'reservations'));
+      unsub = onSnapshot(q, (snap) => {
+        const res = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setAllReservations(res);
+      }, (err) => {
+        console.error("Error en tiempo real:", err);
+      });
+    };
+
+    if (isBypass || isAdmin) {
+      startListening();
     }
-    if (isAdmin) fetchData();
+
+    return () => {
+      if (unsub) unsub();
+    };
   }, [isAdmin, isBypass]);
 
   // Reservas filtradas por el día seleccionado (solo para el dashboard de aforo)
@@ -235,6 +253,14 @@ export default function AdminApp() {
               onChange={(e) => setDateFilter(e.target.value)}
               className="bg-[#151515] border border-[#E5E2D9]/20 p-2 text-[#E5E2D9] [&::-webkit-calendar-picker-indicator]:invert"
             />
+            <button 
+              onClick={fetchData}
+              disabled={isRefreshing}
+              className="bg-[#151515] border border-[#E5E2D9]/20 p-2 text-[#E5E2D9] hover:bg-[#E5E2D9]/5 transition-colors disabled:opacity-50"
+              title="Actualizar datos"
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
             <button 
               onClick={() => setShowNewModal(true)}
               className="bg-[#C4A484] text-[#0D0D0B] px-4 py-2 font-bold uppercase tracking-wider text-xs flex items-center gap-2 hover:bg-[#b09376]"
