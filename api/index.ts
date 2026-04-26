@@ -3,6 +3,13 @@ import crypto from 'crypto';
 import path from 'path';
 import cors from 'cors';
 import { Resend } from 'resend';
+import admin from 'firebase-admin';
+
+// Initialize Firebase Admin
+if (admin.apps.length === 0) {
+  admin.initializeApp();
+}
+const db = admin.firestore();
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_fallback_so_it_doesnt_crash');
 
@@ -90,7 +97,7 @@ app.use((req, res, next) => {
     });
 
 // 1. Endpoint para iniciar el pago
-app.post(['/api/create-payment', '/create-payment'], (req, res) => {
+app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
   try {
     const { amount, tickets, date, time, customer, orderId: incomingOrderId } = req.body;
     
@@ -106,8 +113,6 @@ app.post(['/api/create-payment', '/create-payment'], (req, res) => {
     console.log(`🔑 Clave usada (Longitud decodificada): ${keyBytes.length} bytes`);
 
     // Parámetros JSON para Redsys. 
-    // Ds_Merchant_Terminal DEBE ser '1' o '001' (numérico). 
-    // Ds_Merchant_Currency 978 es EURO. Ds_Merchant_ConsumerLanguage 001 es ESPAÑOL.
     const params = {
       Ds_Merchant_Amount: amountStr,
       Ds_Merchant_Order: orderId,
@@ -115,11 +120,44 @@ app.post(['/api/create-payment', '/create-payment'], (req, res) => {
       Ds_Merchant_Currency: '978',
       Ds_Merchant_TransactionType: '0',
       Ds_Merchant_Terminal: '1',
-      Ds_Merchant_MerchantURL: `https://www.cuevasdealajar.com/api/redsys-webhook`,
-      Ds_Merchant_UrlOK: `https://www.cuevasdealajar.com?payment=success`,
-      Ds_Merchant_UrlKO: `https://www.cuevasdealajar.com?payment=error`,
-      Ds_Merchant_ConsumerLanguage: '001'
+      Ds_Merchant_MerchantURL: `https://${req.get('host')}/api/redsys-webhook`,
+      Ds_Merchant_UrlOK: `https://${req.get('host')}?payment=success`,
+      Ds_Merchant_UrlKO: `https://${req.get('host')}?payment=error`,
+      Ds_Merchant_ConsumerLanguage: '001',
+      Ds_Merchant_MerchantData: Buffer.from(JSON.stringify({ date, time, customer, tickets })).toString('base64')
     };
+
+    // PERSISTENCIA INICIAL: Guardar la reserva en estado "pending" para visibilidad inmediata en el CRM
+    try {
+      const totalTickets = (tickets.adult || 0) + (tickets.reduced || 0) + (tickets.childFree || 0);
+      await db.collection('reservations').doc(orderId).set({
+        localizador: orderId,
+        date,
+        time,
+        customerName: customer.name,
+        customerEmail: customer.email,
+        tickets,
+        totalTickets,
+        amount,
+        status: 'pending',
+        source: 'online',
+        createdAt: new Date().toISOString()
+      });
+      console.log(`📡 Reserva registrada (Admin SDK) como PENDIENTE: ${orderId}`);
+      
+      // BLOQUEAR AFORO: Incrementar el contador de ocupación inmediatamente
+      const slotId = `${date}_${time}`;
+      const slotRef = db.collection('slots').doc(slotId);
+      const slotSnap = await slotRef.get();
+      if (slotSnap.exists) {
+        await slotRef.update({ bookedCount: admin.firestore.FieldValue.increment(totalTickets) });
+      } else {
+        await slotRef.set({ date, time, bookedCount: totalTickets });
+      }
+      console.log(`📉 Aforo actualizado para ${slotId} (+${totalTickets})`);
+    } catch (dbErr) {
+      console.error('⚠️ Error guardando reserva pendiente en DB:', dbErr);
+    }
 
     const paramsBase64 = Buffer.from(JSON.stringify(params), 'utf8').toString('base64');
 
@@ -162,65 +200,77 @@ app.post(['/api/redsys-webhook', '/redsys-webhook'], async (req, res) => {
     
     console.log(`🔔 Notificación de Redsys Recibida [Pedido ${params.Ds_Order}] => RespCode: ${params.Ds_Response}`);
 
+    const orderId = params.Ds_Order;
     // Respuestas en 0000 al 0099 son autorizadas
     const responseCode = parseInt(params.Ds_Response, 10);
-    if (responseCode >= 0 && responseCode <= 99) {
-      console.log('✅ PAGO CONFIRMADO. Enviando ticket...');
+    const isSuccess = responseCode >= 0 && responseCode <= 99;
+
+    if (isSuccess) {
+      console.log('✅ PAGO CONFIRMADO. Actualizando DB y enviando ticket...');
       
       try {
-        // Redsys de vuelve el MerchantData codificado en la URL (a veces)
-        const merchantDataStr = decodeURIComponent(params.Ds_MerchantData);
-        const { date, time, customer, tickets } = JSON.parse(merchantDataStr);
+        // Actualizar estado en Firebase (Admin SDK)
+        const resRef = db.collection('reservations').doc(orderId);
+        await resRef.update({ status: 'confirmed', paidAt: new Date().toISOString() });
         
-        const totalTickets = (tickets.adult || 0) + (tickets.reduced || 0) + (tickets.childFree || 0);
-
-        const emailHtml = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #151515;">
-            <div style="background-color: #151515; padding: 30px; text-align: center;">
-              <h1 style="color: #C4A484; font-family: serif; margin: 0;">Cuevas de la Peña</h1>
-              <p style="color: rgba(229, 226, 217, 0.6); margin-top: 5px;">Arias Montano</p>
-            </div>
-            
-            <div style="padding: 30px; border: 1px solid #eee;">
-              <h2 style="font-family: serif; margin-top: 0;">¡Hola ${customer.name}!</h2>
-              <p>Tu pago ha sido confirmado correctamente. Aquí tienes los detalles de tu visita:</p>
-              
-              <div style="background-color: #f9f9f9; padding: 20px; border-left: 4px solid #C4A484; margin: 20px 0;">
-                <h3 style="margin-top: 0; color: #C4A484; text-transform: uppercase; font-size: 14px;">Detalles de la Reserva</h3>
-                <p><strong>Localizador:</strong> #${params.Ds_Order}</p>
-                <p><strong>Fecha:</strong> ${date}</p>
-                <p><strong>Hora:</strong> ${time}</p>
-                <p><strong>Total personas:</strong> ${totalTickets}</p>
-                <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;" />
-                <p style="font-size: 13px; color: #666; margin: 0;">
-                  Adultos: ${tickets.adult || 0} | Reducidas: ${tickets.reduced || 0} | Menores (Gratis): ${tickets.childFree || 0}
-                </p>
-              </div>
-
-              <p>Muestra este correo electrónico en tu teléfono móvil al guía cuando llegues a la entrada de la cueva.</p>
-              <p>Te recomendamos llegar 10 minutos antes de tu hora asignada.</p>
-              
-              <div style="text-align: center; margin-top: 40px; color: #999; font-size: 12px;">
-                <p>Si tienes alguna duda, ponte en contacto con info@cuevasdealajar.com</p>
-              </div>
-            </div>
-          </div>
-        `;
-
-        // Send Email via Resend
-        await resend.emails.send({
-          from: 'Cuevas de la Peña <info@send.cuevasdealajar.com>',
-          to: customer.email,
-          subject: '🎟️ Tus entradas confirmadas - Cuevas de la Peña',
-          html: emailHtml
-        });
+        // Recuperar datos para el email
+        const resSnap = await resRef.get();
+        const resData = resSnap.data();
         
-        console.log(`✉️ Email enviado a: ${customer.email} correctamente.`);
+        if (resData) {
+          const { date, time, customerName, customerEmail, tickets, totalTickets } = resData;
+
+          const emailHtml = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #151515;">
+              <div style="background-color: #151515; padding: 30px; text-align: center;">
+                <h1 style="color: #C4A484; font-family: serif; margin: 0;">Cuevas de la Peña</h1>
+                <p style="color: rgba(229, 226, 217, 0.6); margin-top: 5px;">Arias Montano</p>
+              </div>
+              
+              <div style="padding: 30px; border: 1px solid #eee;">
+                <h2 style="font-family: serif; margin-top: 0;">¡Hola ${customerName}!</h2>
+                <p>Tu pago ha sido confirmado correctamente. Aquí tienes los detalles de tu visita:</p>
+                
+                <div style="background-color: #f9f9f9; padding: 20px; border-left: 4px solid #C4A484; margin: 20px 0;">
+                  <h3 style="margin-top: 0; color: #C4A484; text-transform: uppercase; font-size: 14px;">Detalles de la Reserva</h3>
+                  <p><strong>Localizador:</strong> #${orderId}</p>
+                  <p><strong>Fecha:</strong> ${date}</p>
+                  <p><strong>Hora:</strong> ${time}</p>
+                  <p><strong>Total personas:</strong> ${totalTickets}</p>
+                  <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;" />
+                  <p style="font-size: 13px; color: #666; margin: 0;">
+                    Adultos: ${tickets.adult || 0} | Reducidas: ${tickets.reduced || 0} | Menores (Gratis): ${tickets.childFree || 0}
+                  </p>
+                </div>
+  
+                <p>Muestra este correo electrónico en tu teléfono móvil al guía cuando llegues a la entrada de la cueva.</p>
+                <p>Te recomendamos llegar 10 minutos antes de tu hora asignada.</p>
+                
+                <div style="text-align: center; margin-top: 40px; color: #999; font-size: 12px;">
+                  <p>Si tienes alguna duda, ponte en contacto con info@cuevasdealajar.com</p>
+                </div>
+              </div>
+            </div>
+          `;
+  
+          // Send Email via Resend
+          await resend.emails.send({
+            from: 'Cuevas de la Peña <info@send.cuevasdealajar.com>',
+            to: customerEmail,
+            subject: '🎟️ Tus entradas confirmadas - Cuevas de la Peña',
+            html: emailHtml
+          });
+          
+          console.log(`✉️ Email enviado a: ${customerEmail} correctamente.`);
+        }
       } catch (err: any) {
-        console.error('⚠️ Error procesando el email post-pago:', err.message);
+        console.error('⚠️ Error procesando post-pago:', err.message);
       }
     } else {
       console.log('❌ PAGO DENEGADO por la tarjeta.');
+      try {
+        await db.collection('reservations').doc(orderId).update({ status: 'failed', errorCode: params.Ds_Response });
+      } catch (e) {}
     }
 
     res.status(200).send("OK");

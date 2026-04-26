@@ -198,8 +198,6 @@ export default function App() {
     setIsLoadingPayment(true);
     
     try {
-      // 1. Crear documento pendiente en Firestore
-      // Generador de ID de pedido único (12 dígitos numéricos)
       // Formato: AAAAmmdd + 4 dígitos aleatorios
       const now = new Date();
       const YYYY = now.getFullYear().toString();
@@ -208,31 +206,9 @@ export default function App() {
       const randomPart = Math.floor(1000 + Math.random() * 9000).toString();
       const orderId = `${YYYY}${MM}${DD}${randomPart}`.substring(0, 12);
 
-      const resRef = doc(collection(db, 'reservations'));
-      await setDoc(resRef, {
-         date,
-         time,
-         customerName,
-         customerEmail,
-         tickets,
-         totalTickets: totalSelectedTickets,
-         amount: totalPrice,
-         source: 'online',
-         status: 'pending',
-         localizador: orderId,
-         createdAt: Date.now()
-      });
-
-      // 2. Incrementar la reserva en los Slots para bloquear inmediatamente los asientos
-      const slotRef = doc(db, 'slots', `${date}_${time}`);
-      const slotSnap = await getDoc(slotRef);
-      if (slotSnap.exists()) {
-        await updateDoc(slotRef, { bookedCount: increment(totalSelectedTickets) });
-      } else {
-        await setDoc(slotRef, { date, time, bookedCount: totalSelectedTickets });
-      }
-
-      // 3. Obtener Link de Redsys
+      // El servidor (api/index.ts) se encargará de crear la reserva pendiente
+      // y de incrementar el aforo para evitar duplicidades y fallos de permisos.
+      
       const response = await fetch('/api/create-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -315,9 +315,20 @@ export default function AdminApp() {
                       </span>
                     </td>
                     <td className="p-4">
-                      <span className={`px-2 py-1 text-[10px] uppercase tracking-wider ${r.status === 'confirmed' || r.status === 'paid' ? 'bg-emerald-900/40 text-emerald-300' : 'bg-orange-900/30 text-orange-300'}`}>
-                        {r.status === 'paid' ? 'Pagado (Web)' : r.status === 'confirmed' ? 'Confirmado' : 'Pendiente'}
+                      <span className={`px-2 py-1 text-[10px] uppercase tracking-wider ${
+                        r.status === 'confirmed' || r.status === 'paid' 
+                          ? 'bg-emerald-900/40 text-emerald-300' 
+                          : r.status === 'pending'
+                            ? 'bg-amber-900/40 text-amber-300 shadow-[0_0_8px_rgba(217,119,6,0.3)] animate-pulse'
+                            : 'bg-red-900/40 text-red-300'
+                      }`}>
+                        {r.status === 'paid' || r.status === 'confirmed' 
+                          ? '✅ Confirmado' 
+                          : r.status === 'pending' 
+                            ? '⏳ En Proceso/Pendiente' 
+                            : '❌ Fallido/Cancelado'}
                       </span>
+                      {r.errorCode && <div className="text-[9px] text-red-400 mt-1 font-mono">Error: {r.errorCode}</div>}
                     </td>
                   </tr>
                 ))
