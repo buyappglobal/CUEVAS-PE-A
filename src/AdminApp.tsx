@@ -105,8 +105,15 @@ export default function AdminApp() {
       if (u) {
         // Verify admin
         try {
-          const authorizedEmails = ['holasolonet@gmail.com', 'caballerovazquezrafael@gmail.com', 'taquilla@cuevas.com'];
-          const isAuthorizedEmail = u.email && authorizedEmails.includes(u.email);
+          const authorizedEmails = [
+            'holasolonet@gmail.com', 
+            'caballerovazquezrafael@gmail.com', 
+            'taquilla@cuevas.com', 
+            'taquilla@cuevasdealajar.com',
+            'admin@cuevasdealajar.com',
+            'cuevasdealajar@gmail.com'
+          ];
+          const isAuthorizedEmail = u.email && authorizedEmails.some(e => e.toLowerCase() === u.email?.toLowerCase());
           
           if (isAuthorizedEmail) {
             setIsAdmin(true);

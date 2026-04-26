@@ -10,7 +10,7 @@ export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const loginWithEmail = async (email: string, pass: string) => {
   try {
     const result = await signInWithEmailAndPassword(auth, email, pass);
-    const authorizedBootstrappers = ['holasolonet@gmail.com', 'caballerovazquezrafael@gmail.com', 'taquilla@cuevas.com'];
+    const authorizedBootstrappers = ['holasolonet@gmail.com', 'caballerovazquezrafael@gmail.com', 'taquilla@cuevas.com', 'cuevasdealajar@gmail.com', 'admin@cuevasdealajar.com'];
     if (result.user.email && authorizedBootstrappers.includes(result.user.email)) {
       const adminRef = doc(db, 'admins', result.user.uid);
       const adminSnap = await getDoc(adminRef);
@@ -31,7 +31,7 @@ export const loginWithGoogle = async () => {
     const result = await signInWithPopup(auth, provider);
     
     // Check if admin, if email is authorized, auto-add to admins
-    const authorizedBootstrappers = ['holasolonet@gmail.com', 'caballerovazquezrafael@gmail.com'];
+    const authorizedBootstrappers = ['holasolonet@gmail.com', 'caballerovazquezrafael@gmail.com', 'taquilla@cuevas.com', 'cuevasdealajar@gmail.com', 'admin@cuevasdealajar.com'];
     if (result.user.email && authorizedBootstrappers.includes(result.user.email)) {
       const adminRef = doc(db, 'admins', result.user.uid);
       const adminSnap = await getDoc(adminRef);
