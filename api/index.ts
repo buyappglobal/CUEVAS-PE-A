@@ -199,11 +199,13 @@ app.post(['/api/redsys-webhook', '/redsys-webhook'], async (req, res) => {
     const decodedParamsStr = Buffer.from(Ds_MerchantParameters, 'base64').toString('utf8');
     const params = JSON.parse(decodedParamsStr);
     
-    const orderId = params.Ds_Order || params.Ds_Merchant_Order;
-    const responseCode = parseInt(params.Ds_Response, 10);
-    const isSuccess = responseCode >= 0 && responseCode <= 99;
+    // Intentar obtener el ID del pedido de varias fuentes posibles en la respuesta de Redsys
+    const orderId = params.Ds_Order || params.Ds_Merchant_Order || params.Ds_Order_Id;
+    const responseCode = params.Ds_Response;
+    const responseNum = parseInt(responseCode, 10);
+    const isSuccess = responseNum >= 0 && responseNum <= 99;
 
-    console.log(`🔔 Notificación de Redsys: Pedido ${orderId} | Código Respuesta: ${params.Ds_Response} | Éxito: ${isSuccess}`);
+    console.log(`🔔 Webhook Redsys [${orderId}]: Código=${responseCode} | Éxito=${isSuccess}`);
 
     if (!orderId) {
       console.error("❌ No se encontró OrderId en los parámetros decodificados");

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { db, auth, loginWithGoogle, loginWithEmail, logout } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, query, getDocs, doc, getDoc, setDoc, updateDoc, increment, where, onSnapshot } from 'firebase/firestore';
-import { Calendar, Clock, Ticket, Users, FileText, CheckCircle, Plus, Trash2, LogOut, Mountain, X, RefreshCw, Info, Ban, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, Ticket, Users, FileText, CheckCircle, Plus, Trash2, LogOut, Mountain, X, RefreshCw, Info, Ban, AlertCircle, Copy, Mail } from 'lucide-react';
 
 export default function AdminApp() {
   const [user, setUser] = useState<User | null>(null);
@@ -32,7 +32,21 @@ export default function AdminApp() {
   );
 
   const [cancelModal, setCancelModal] = useState<{show: boolean, resId: string | null}>({ show: false, resId: null });
+  const [confirmModal, setConfirmModal] = useState<{show: boolean, resId: string | null}>({ show: false, resId: null });
   const [showNewModal, setShowNewModal] = useState(false);
+
+  const handleConfirmReservation = async (resId: string) => {
+    try {
+      await updateDoc(doc(db, 'reservations', resId), { 
+        status: 'confirmed', 
+        confirmedManually: true,
+        confirmedAt: new Date().toISOString()
+      });
+      setConfirmModal({ show: false, resId: null });
+    } catch (e) {
+      alert("Error: " + (e as Error).message);
+    }
+  };
 
   const handleCancelReservation = async (resId: string) => {
     try {
@@ -332,6 +346,10 @@ export default function AdminApp() {
           <table className="w-full text-left text-sm">
             <thead className="bg-[#0D0D0B] text-[#E5E2D9]/50 uppercase tracking-wider text-[10px] border-b border-[#E5E2D9]/10">
               <tr>
+                <th className="p-4 whitespace-nowrap">
+                  Registro
+                  <Tooltip text="Fecha y hora en la que el cliente inició el proceso de compra." />
+                </th>
                 <th className="p-4">
                   Fecha/Hora
                   <Tooltip text="Fecha y hora programada para la visita a la cueva." />
@@ -377,14 +395,33 @@ export default function AdminApp() {
                   return b.time.localeCompare(a.time);
                 }).map(r => (
                   <tr key={r.id} className="border-b border-[#E5E2D9]/5 hover:bg-[#E5E2D9]/5 transition-colors">
+                    <td className="p-4 whitespace-nowrap text-[10px] font-mono text-[#E5E2D9]/40">
+                      {r.createdAt ? new Date(r.createdAt).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '---'}
+                    </td>
                     <td className="p-4 whitespace-nowrap">
                       <div className="font-mono text-[#C4A484]">{r.date}</div>
                       <div className="text-xs text-[#E5E2D9]/60">{r.time}</div>
                     </td>
                     <td className="p-4 font-mono text-xs text-[#E5E2D9]/50">#{r.localizador || 'N/A'}</td>
                     <td className="p-4">
-                      <div>{r.customerName}</div>
-                      <div className="text-[10px] text-[#E5E2D9]/40">{r.customerEmail}</div>
+                      <div className="flex items-center gap-2">
+                        <Users className="w-3 h-3 text-[#C4A484]/40" />
+                        <div className="font-medium text-[#E5E2D9]">{r.customerName}</div>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 group/email">
+                        <Mail className="w-3 h-3 text-[#E5E2D9]/20" />
+                        <div className="text-[10px] text-[#E5E2D9]/40">{r.customerEmail}</div>
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText(r.customerEmail);
+                            alert("Email copiado al portapapeles");
+                          }}
+                          className="opacity-0 group-hover/email:opacity-100 p-0.5 hover:text-[#C4A484] transition-all cursor-pointer"
+                          title="Copiar Email"
+                        >
+                          <Copy className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
                     </td>
                     <td className="p-4 text-[#E5E2D9]/70">
                       {r.tickets?.adult || 0} / {r.tickets?.reduced || 0} / {r.tickets?.childFree || 0}
@@ -414,15 +451,7 @@ export default function AdminApp() {
                         </span>
                         {r.status === 'pending' && (
                           <button 
-                            onClick={async () => {
-                              if (confirm("¿Confirmar este pago manualmente?")) {
-                                try {
-                                  await updateDoc(doc(db, 'reservations', r.id), { status: 'confirmed', confirmedManually: true });
-                                } catch (e) {
-                                  alert("Error: " + (e as Error).message);
-                                }
-                              }
-                            }}
+                            onClick={() => setConfirmModal({ show: true, resId: r.id })}
                             className="p-1 hover:text-emerald-400 text-emerald-600 transition-colors"
                             title="Confirmar Manualmente"
                           >
@@ -448,6 +477,36 @@ export default function AdminApp() {
           </table>
         </div>
       </main>
+
+      {/* Manual Confirmation Modal */}
+      {confirmModal.show && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[60]">
+          <div className="bg-[#151515] border border-emerald-900/50 p-8 max-w-sm w-full text-center shadow-2xl">
+            <CheckCircle className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
+            <h3 className="text-xl font-serif mb-2">Confirmar Pago</h3>
+            <p className="text-sm text-[#E5E2D9]/60 mb-6">
+              Esta reserva aparece como <strong>PENDIENTE</strong>. 
+              <span className="block mt-4 p-3 bg-emerald-900/20 text-emerald-300 text-xs rounded border border-emerald-800/30">
+                Asegúrate de que el pago aparece como 'Correcto' en tu terminal de Redsys antes de confirmar en el CRM.
+              </span>
+            </p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setConfirmModal({ show: false, resId: null })}
+                className="flex-1 py-2 border border-[#E5E2D9]/20 hover:bg-white/5 transition-colors text-xs uppercase font-bold"
+              >
+                Cerrar
+              </button>
+              <button 
+                onClick={() => confirmModal.resId && handleConfirmReservation(confirmModal.resId)}
+                className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs uppercase font-bold transition-colors"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cancel Confirmation Modal */}
       {cancelModal.show && (
@@ -504,8 +563,20 @@ export default function AdminApp() {
                 <label className="block text-xs uppercase text-[#E5E2D9]/50 mb-1">Nombre Comprador</label>
                 <input 
                   type="text" required
+                  placeholder="Ej: Juan Pérez"
                   value={newRes.customerName}
                   onChange={e => setNewRes({...newRes, customerName: e.target.value})}
+                  className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/20 p-3 text-[#E5E2D9] focus:outline-none focus:border-[#C4A484]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs uppercase text-[#E5E2D9]/50 mb-1">Email (Opcional)</label>
+                <input 
+                  type="email"
+                  placeholder="ejemplo@email.com"
+                  value={newRes.customerEmail === 'manual@taquilla.local' ? '' : newRes.customerEmail}
+                  onChange={e => setNewRes({...newRes, customerEmail: e.target.value || 'manual@taquilla.local'})}
                   className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/20 p-3 text-[#E5E2D9] focus:outline-none focus:border-[#C4A484]"
                 />
               </div>
