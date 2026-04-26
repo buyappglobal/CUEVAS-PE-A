@@ -133,7 +133,7 @@ app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
     try {
       const totalTickets = (tickets.adult || 0) + (tickets.reduced || 0) + (tickets.childFree || 0);
       
-      // Intentar guardar la reserva. Si falla, lanzamos error para que no siga a Redsys
+      // Intentar guardar la reserva. Lo hacemos de forma que no bloquee el pago si falla la red con la DB
       await db.collection('reservations').doc(orderId).set({
         localizador: orderId,
         date,
@@ -161,8 +161,8 @@ app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
       }
       console.log(`📉 Aforo actualizado para ${slotId} (+${totalTickets})`);
     } catch (dbErr: any) {
-      console.error('❌ ERROR FATAL guardando reserva en DB:', dbErr);
-      throw new Error(`No se pudo registrar la reserva en la base de datos: ${dbErr.message}`);
+      console.error('⚠️ ALERTA: No se pudo pre-registrar reserva en DB, pero continuamos a Redsys:', dbErr.message);
+      // NO lanzamos Error para no bloquear al cliente. El webhook recuperará la reserva después.
     }
 
     const paramsBase64 = Buffer.from(JSON.stringify(params), 'utf8').toString('base64');
