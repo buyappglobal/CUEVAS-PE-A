@@ -268,9 +268,13 @@ export default function AdminApp() {
   if (!isBypass && (!user || !isAdmin)) {
     return (
       <div className="min-h-screen bg-[#0D0D0B] text-[#E5E2D9] flex flex-col items-center justify-center p-4">
-        <Mountain className="w-16 h-16 text-[#C4A484] mb-8" />
-        <h1 className="text-3xl font-serif mb-2">Panel de Taquilla</h1>
-        <p className="text-[#E5E2D9]/60 mb-8 max-w-sm text-center">Acceso restringido para el personal de las Cuevas de la Peña de Arias Montano.</p>
+        <img 
+          src="https://solonet.es/wp-content/uploads/2026/04/ICONO-CUEVAS-ALAJAR.png" 
+          alt="Panel de Taquilla" 
+          className="w-20 h-20 object-contain mb-8"
+          referrerPolicy="no-referrer"
+        />
+        <h1 className="text-3xl font-serif mb-2">Panel de Taquilla</h1>        <p className="text-[#E5E2D9]/60 mb-8 max-w-sm text-center">Acceso restringido para el personal de las Cuevas de la Peña de Arias Montano.</p>
         
         <div className="bg-[#151515] p-6 border border-[#E5E2D9]/10 w-full max-w-sm mb-6">
           <form onSubmit={handleEmailSubmit} className="space-y-4">
@@ -327,7 +331,12 @@ export default function AdminApp() {
     <div className="min-h-screen bg-[#0D0D0B] text-[#E5E2D9] font-sans">
       <nav className="border-b border-[#E5E2D9]/10 bg-[#151515] px-6 py-4 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <Mountain className="text-[#C4A484] w-6 h-6" />
+          <img 
+            src="https://solonet.es/wp-content/uploads/2026/04/ICONO-CUEVAS-ALAJAR.png" 
+            alt="Isotipo" 
+            className="w-8 h-8 object-contain"
+            referrerPolicy="no-referrer"
+          />
           <span className="font-serif text-xl tracking-wide">Panel Taquilla</span>
         </div>
         <div className="flex items-center gap-4 text-sm">

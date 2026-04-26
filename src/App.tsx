@@ -303,7 +303,12 @@ export default function App() {
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             className="flex items-center gap-2 hover:opacity-70 transition-opacity cursor-pointer group"
           >
-            <Mountain className="w-6 h-6 text-[#C4A484]" />
+            <img 
+              src="https://solonet.es/wp-content/uploads/2026/04/ICONO-CUEVAS-ALAJAR.png" 
+              alt="Peña Arias Montano" 
+              className="w-8 h-8 object-contain"
+              referrerPolicy="no-referrer"
+            />
             <span className="font-serif text-xl tracking-[0.05em] uppercase">Peña Arias Montano</span>
           </button>
           <div className="hidden md:flex items-center gap-8 text-[11px] uppercase tracking-[0.15em] font-medium text-[#E5E2D9]/70">
@@ -538,7 +543,12 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-4 gap-12 text-[10px] uppercase tracking-[0.1em]">
           <div className="md:col-span-2">
             <div className="flex items-center gap-2 mb-6">
-              <Mountain className="w-6 h-6 text-[#C4A484]" />
+              <img 
+                src="https://solonet.es/wp-content/uploads/2026/04/ICONO-CUEVAS-ALAJAR.png" 
+                alt="Peña Arias Montano" 
+                className="w-10 h-10 object-contain"
+                referrerPolicy="no-referrer"
+              />
               <span className="font-serif text-lg normal-case tracking-[0.05em] text-[#E5E2D9]">Peña Arias Montano</span>
             </div>
             <p className="max-w-sm leading-[1.6] mb-8 normal-case text-[12px] opacity-70">
@@ -966,7 +976,12 @@ export default function App() {
               <div className="p-8 md:p-12 overflow-y-auto custom-scrollbar">
                 <div className="max-w-2xl mx-auto space-y-12 pb-20">
                   <div className="text-center space-y-4 border-b border-[#E5E2D9]/10 pb-12">
-                    <Mountain className="w-12 h-12 text-[#C4A484] mx-auto mb-4" />
+                    <img 
+                      src="https://solonet.es/wp-content/uploads/2026/04/ICONO-CUEVAS-ALAJAR.png" 
+                      alt="Excmo. Ayuntamiento de Alájar" 
+                      className="w-16 h-16 object-contain mx-auto mb-4"
+                      referrerPolicy="no-referrer"
+                    />
                     <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-[#C4A484]">Excmo. Ayuntamiento de Alájar</h2>
                     <h1 className="text-3xl md:text-4xl font-serif leading-tight">ORDENANZA REGULADORA DEL USO, ACCESO, SEGURIDAD Y CONSERVACIÓN</h1>
                     <p className="text-[10px] opacity-40 uppercase tracking-widest pt-4">Peña de Arias Montano, Cuevas de Alájar y Centro de Visitantes</p>
