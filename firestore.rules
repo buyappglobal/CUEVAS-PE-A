@@ -12,12 +12,14 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // An admin is anyone who successfully logs in with Google in our case?
-    // Actually, to make it secure, we require them to be in the admins collection.
-    // For bootstrapping, we'll allow any signed-in user to act as admin FOR THE PROTOTYPE,
-    // OR we can securely boot by checking email.
+    // An admin is anyone who is in the admins collection OR has an authorized email
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'holasolonet@gmail.com' || 
+        request.auth.token.email == 'caballerovazquezrafael@gmail.com' || 
+        request.auth.token.email == 'taquilla@cuevas.com'
+      );
     }
 
     match /admins/{adminId} {

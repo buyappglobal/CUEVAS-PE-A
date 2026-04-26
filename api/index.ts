@@ -280,7 +280,7 @@ app.post(['/api/redsys-webhook', '/redsys-webhook'], async (req, res) => {
       try {
         const resRef = db.collection('reservations').doc(orderId);
         const resSnap = await resRef.get();
-        if (resSnap.exists()) {
+        if (resSnap.exists) {
           const resData = resSnap.data();
           if (resData && resData.status === 'pending') {
             const { date, time, totalTickets } = resData;

@@ -13,18 +13,20 @@ export default function AdminApp() {
   
   // Data states
   const [allReservations, setAllReservations] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Login form states
   const [emailInput, setEmailInput] = useState('admin');
   const [passwordInput, setPasswordInput] = useState('');
-  
+
   // Tooltip helper component
   const Tooltip = ({ text }: { text: string }) => (
     <div className="group relative inline-block ml-1">
       <Info className="w-3 h-3 text-[#C4A484]/50 hover:text-[#C4A484] cursor-help" />
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 p-2 bg-[#1A1A1A] border border-[#C4A484]/30 text-[10px] text-[#E5E2D9] rounded shadow-xl z-50 pointer-events-none">
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-64 p-3 bg-[#1A1A1A] border border-[#C4A484]/30 text-[10px] leading-relaxed text-[#E5E2D9] rounded shadow-2xl z-50 pointer-events-none">
         {text}
         <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-[#1A1A1A]"></div>
       </div>
@@ -34,6 +36,25 @@ export default function AdminApp() {
   const [cancelModal, setCancelModal] = useState<{show: boolean, resId: string | null}>({ show: false, resId: null });
   const [confirmModal, setConfirmModal] = useState<{show: boolean, resId: string | null}>({ show: false, resId: null });
   const [showNewModal, setShowNewModal] = useState(false);
+
+  // Filtered and Sorted Reservations
+  const filteredReservations = allReservations
+    .filter(r => {
+      const matchesSearch = 
+        r.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.customerEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.id?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      // Priorizar fecha de registro (más recientes arriba)
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
+    });
 
   const handleConfirmReservation = async (resId: string) => {
     try {
@@ -83,10 +104,18 @@ export default function AdminApp() {
       if (u) {
         // Verify admin
         try {
-          const adminDoc = await getDoc(doc(db, 'admins', u.uid));
-          setIsAdmin(adminDoc.exists());
-          if (adminDoc.exists()) {
+          const authorizedEmails = ['holasolonet@gmail.com', 'caballerovazquezrafael@gmail.com', 'taquilla@cuevas.com'];
+          const isAuthorizedEmail = u.email && authorizedEmails.includes(u.email);
+          
+          if (isAuthorizedEmail) {
+            setIsAdmin(true);
             fetchData();
+          } else {
+            const adminDoc = await getDoc(doc(db, 'admins', u.uid));
+            setIsAdmin(adminDoc.exists());
+            if (adminDoc.exists()) {
+              fetchData();
+            }
           }
         } catch (e) {
           console.error(e);
@@ -296,7 +325,33 @@ export default function AdminApp() {
             <h2 className="text-2xl font-serif mb-1">Gestión de Aforos y Reservas</h2>
             <p className="text-[#E5E2D9]/60 text-sm">Visualiza las ventas online y registra entradas vendidas in-situ.</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            {/* Buscador Avanzado */}
+            <div className="relative flex-1 md:flex-none md:w-64">
+              <input 
+                type="text" 
+                placeholder="Buscar cliente, email o ID..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-[#151515] border border-[#E5E2D9]/10 p-2.5 pl-3 text-[#E5E2D9] text-xs focus:border-[#C4A484]/50 focus:outline-none transition-colors"
+              />
+            </div>
+
+            {/* Filtro de Estado */}
+            <select 
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="bg-[#151515] border border-[#E5E2D9]/10 p-2.5 text-[#E5E2D9] text-xs focus:border-[#C4A484]/50 focus:outline-none appearance-none cursor-pointer min-w-[140px]"
+            >
+              <option value="all">Todos los Estados</option>
+              <option value="confirmed">✅ Confirmados</option>
+              <option value="pending">⏳ Pendientes</option>
+              <option value="failed">❌ Fallidos</option>
+              <option value="cancelled">🚫 Anulados</option>
+            </select>
+
+            <div className="h-8 w-px bg-[#E5E2D9]/10 mx-1 hidden md:block"></div>
+
             <input 
               type="date" 
               value={dateFilter}
@@ -344,6 +399,16 @@ export default function AdminApp() {
         </div>
 
         {/* Reservations List */}
+        <div className="flex justify-between items-end mb-4">
+          <h3 className="text-sm uppercase tracking-widest text-[#E5E2D9]/40 font-bold">
+            Listado de Registros ({filteredReservations.length})
+          </h3>
+          {statusFilter !== 'all' && (
+            <span className="text-[10px] text-[#C4A484]/60 uppercase tracking-tighter">
+              Filtro activo: {statusFilter}
+            </span>
+          )}
+        </div>
         <div className="bg-[#151515] border border-[#E5E2D9]/10">
           <table className="w-full text-left text-sm">
             <thead className="bg-[#0D0D0B] text-[#E5E2D9]/50 uppercase tracking-wider text-[10px] border-b border-[#E5E2D9]/10">
@@ -383,19 +448,16 @@ export default function AdminApp() {
               </tr>
             </thead>
             <tbody>
-              {allReservations.length === 0 ? (
+              {filteredReservations.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-[#E5E2D9]/40 italic">
-                    No hay reservas registradas en el sistema.
+                  <td colSpan={8} className="p-12 text-center text-[#E5E2D9]/40 italic">
+                    {searchTerm || statusFilter !== 'all' 
+                      ? 'No se encontraron resultados para los filtros aplicados.' 
+                      : 'No hay reservas registradas en el sistema.'}
                   </td>
                 </tr>
               ) : (
-                allReservations.sort((a,b) => {
-                  // Ordenar por fecha y luego hora descendente (más recientes arriba)
-                  const dateCompare = b.date.localeCompare(a.date);
-                  if (dateCompare !== 0) return dateCompare;
-                  return b.time.localeCompare(a.time);
-                }).map(r => (
+                filteredReservations.map(r => (
                   <tr key={r.id} className="border-b border-[#E5E2D9]/5 hover:bg-[#E5E2D9]/5 transition-colors">
                     <td className="p-4 whitespace-nowrap text-[10px] font-mono text-[#E5E2D9]/40">
                       {r.createdAt ? new Date(r.createdAt).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '---'}
