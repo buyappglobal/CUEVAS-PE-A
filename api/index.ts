@@ -119,12 +119,11 @@ app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
       Ds_Merchant_MerchantCode: MERCHANT_CODE,
       Ds_Merchant_Currency: '978',
       Ds_Merchant_TransactionType: '0',
-      Ds_Merchant_Terminal: '1',
+      Ds_Merchant_Terminal: '001',
       Ds_Merchant_MerchantURL: `https://${req.get('host')}/api/redsys-webhook`,
-      Ds_Merchant_UrlOK: `https://${req.get('host')}?payment=success`,
-      Ds_Merchant_UrlKO: `https://${req.get('host')}?payment=error`,
-      Ds_Merchant_ConsumerLanguage: '001',
-      Ds_Merchant_MerchantData: Buffer.from(JSON.stringify({ date, time, customer, tickets })).toString('base64')
+      Ds_Merchant_UrlOK: `https://${req.get('host')}?payment=success&order=${orderId}`,
+      Ds_Merchant_UrlKO: `https://${req.get('host')}?payment=error&order=${orderId}`,
+      Ds_Merchant_ConsumerLanguage: '001'
     };
 
     // PERSISTENCIA INICIAL: Guardar la reserva en estado "pending" para visibilidad inmediata en el CRM
@@ -142,7 +141,7 @@ app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
         status: 'pending',
         source: 'online',
         createdAt: new Date().toISOString()
-      });
+      }, { merge: true });
       console.log(`📡 Reserva registrada (Admin SDK) como PENDIENTE: ${orderId}`);
       
       // BLOQUEAR AFORO: Incrementar el contador de ocupación inmediatamente
@@ -165,7 +164,7 @@ app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
     const transactionKey = encrypt3DES(orderId, ACTUAL_SECRET);
     const signature = mac256(paramsBase64, transactionKey);
 
-    console.log(`✅ Firma generada para el comerciante ${MERCHANT_CODE}`);
+    console.log(`✅ Firma de ida generada para Pedido ${orderId}`);
 
     // Devolvemos el pack completo al Frontend
     res.json({
@@ -182,101 +181,116 @@ app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
 
 // 2. Endpoint oculto (Webhook) donde Redsys confirmará si el pago fue exitoso
 app.post(['/api/redsys-webhook', '/redsys-webhook'], async (req, res) => {
-  console.log("📥 WEBHOOK REDSYS - URL:", req.url);
-  console.log("📥 WEBHOOK REDSYS - BODY RECIBIDO:", JSON.stringify(req.body, null, 2));
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] 📥 WEBHOOK REDSYS RECIBIDO`);
   
-  const { Ds_SignatureVersion, Ds_MerchantParameters, Ds_Signature } = req.body;
-  
+  // Redsys puede enviar los datos en el body o como query params dependiendo de la configuración
+  const body = req.body || {};
+  const Ds_MerchantParameters = body.Ds_MerchantParameters || req.query.Ds_MerchantParameters as string;
+  const Ds_Signature = body.Ds_Signature || req.query.Ds_Signature as string;
+
   if (!Ds_MerchantParameters) {
-    return res.status(400).send("No se recibieron parámetros");
+    console.warn("⚠️ Webhook llamado sin Ds_MerchantParameters");
+    return res.status(200).send("No params received, but acknowledged");
   }
 
   try {
+    // Decodificar Base64 (Redsys usa codificación estándar base64)
     const decodedParamsStr = Buffer.from(Ds_MerchantParameters, 'base64').toString('utf8');
     const params = JSON.parse(decodedParamsStr);
     
-    // Aquí (en entorno real) verificaríamos la firma que de vuelta envía Redsys
-    // calculándola con la clave igual que a la ida, pero cifrando con la firma entrante.
-    
-    console.log(`🔔 Notificación de Redsys Recibida [Pedido ${params.Ds_Order}] => RespCode: ${params.Ds_Response}`);
-
-    const orderId = params.Ds_Order;
-    // Respuestas en 0000 al 0099 son autorizadas
+    const orderId = params.Ds_Order || params.Ds_Merchant_Order;
     const responseCode = parseInt(params.Ds_Response, 10);
     const isSuccess = responseCode >= 0 && responseCode <= 99;
 
+    console.log(`🔔 Notificación de Redsys: Pedido ${orderId} | Código Respuesta: ${params.Ds_Response} | Éxito: ${isSuccess}`);
+
+    if (!orderId) {
+      console.error("❌ No se encontró OrderId en los parámetros decodificados");
+      return res.status(200).send("OK-NO-ORDER");
+    }
+
     if (isSuccess) {
-      console.log('✅ PAGO CONFIRMADO. Actualizando DB y enviando ticket...');
+      console.log(`✅ PAGO CONFIRMADO para ${orderId}. Actualizando a 'confirmed'...`);
       
       try {
-        // Actualizar estado en Firebase (Admin SDK)
         const resRef = db.collection('reservations').doc(orderId);
-        await resRef.update({ status: 'confirmed', paidAt: new Date().toISOString() });
+        await resRef.update({ 
+          status: 'confirmed', 
+          paidAt: new Date().toISOString(),
+          redsysResponse: params.Ds_Response,
+          redsysAuthCode: params.Ds_AuthorisationCode
+        });
         
         // Recuperar datos para el email
         const resSnap = await resRef.get();
         const resData = resSnap.data();
         
-        if (resData) {
+        if (resData && resData.customerEmail) {
           const { date, time, customerName, customerEmail, tickets, totalTickets } = resData;
 
           const emailHtml = `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #151515;">
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #151515; padding: 20px;">
               <div style="background-color: #151515; padding: 30px; text-align: center;">
                 <h1 style="color: #C4A484; font-family: serif; margin: 0;">Cuevas de la Peña</h1>
                 <p style="color: rgba(229, 226, 217, 0.6); margin-top: 5px;">Arias Montano</p>
               </div>
               
-              <div style="padding: 30px; border: 1px solid #eee;">
-                <h2 style="font-family: serif; margin-top: 0;">¡Hola ${customerName}!</h2>
-                <p>Tu pago ha sido confirmado correctamente. Aquí tienes los detalles de tu visita:</p>
+              <div style="padding: 30px; border: 1px solid #eee; border-top: none;">
+                <h2 style="font-family: serif; margin-top: 0; color: #151515;">¡Reserva Confirmada!</h2>
+                <p>Hola <strong>${customerName}</strong>,</p>
+                <p>Tu pago ha sido procesado con éxito. Aquí tienes tus entradas:</p>
                 
                 <div style="background-color: #f9f9f9; padding: 20px; border-left: 4px solid #C4A484; margin: 20px 0;">
-                  <h3 style="margin-top: 0; color: #C4A484; text-transform: uppercase; font-size: 14px;">Detalles de la Reserva</h3>
-                  <p><strong>Localizador:</strong> #${orderId}</p>
-                  <p><strong>Fecha:</strong> ${date}</p>
-                  <p><strong>Hora:</strong> ${time}</p>
-                  <p><strong>Total personas:</strong> ${totalTickets}</p>
+                  <h3 style="margin-top: 0; color: #C4A484; text-transform: uppercase; font-size: 14px;">Detalles de la Visita</h3>
+                  <p style="margin: 5px 0;"><strong>Localizador:</strong> #${orderId}</p>
+                  <p style="margin: 5px 0;"><strong>Fecha:</strong> ${date}</p>
+                  <p style="margin: 5px 0;"><strong>Hora:</strong> ${time}</p>
+                  <p style="margin: 5px 0;"><strong>Total tickets:</strong> ${totalTickets}</p>
                   <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;" />
                   <p style="font-size: 13px; color: #666; margin: 0;">
                     Adultos: ${tickets.adult || 0} | Reducidas: ${tickets.reduced || 0} | Menores (Gratis): ${tickets.childFree || 0}
                   </p>
                 </div>
   
-                <p>Muestra este correo electrónico en tu teléfono móvil al guía cuando llegues a la entrada de la cueva.</p>
-                <p>Te recomendamos llegar 10 minutos antes de tu hora asignada.</p>
-                
-                <div style="text-align: center; margin-top: 40px; color: #999; font-size: 12px;">
-                  <p>Si tienes alguna duda, ponte en contacto con info@cuevasdealajar.com</p>
-                </div>
+                <p>Presenta este email (digital o impreso) en la entrada. Recomendamos llegar 10-15 minutos antes.</p>
+                <p style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; font-size: 12px; color: #888; text-align: center;">
+                  Si necesitas ayuda, contáctanos en info@cuevasdealajar.com
+                </p>
               </div>
             </div>
           `;
   
-          // Send Email via Resend
           await resend.emails.send({
             from: 'Cuevas de la Peña <info@cuevasdealajar.com>',
             to: customerEmail,
-            subject: '🎟️ Tus entradas confirmadas - Cuevas de la Peña',
+            subject: `🎟️ Reserva Confirmada #${orderId} - Cuevas de la Peña`,
             html: emailHtml
           });
           
-          console.log(`✉️ Email enviado a: ${customerEmail} correctamente.`);
+          console.log(`✉️ Ticket enviado correctamente a ${customerEmail}`);
         }
       } catch (err: any) {
-        console.error('⚠️ Error procesando post-pago:', err.message);
+        console.error('⚠️ Error actualizando reserva o enviando email:', err.message);
       }
     } else {
-      console.log('❌ PAGO DENEGADO por la tarjeta.');
+      console.log(`❌ PAGO DENEGADO para ${orderId}. Marcando como 'failed'.`);
       try {
-        await db.collection('reservations').doc(orderId).update({ status: 'failed', errorCode: params.Ds_Response });
-      } catch (e) {}
+        await db.collection('reservations').doc(orderId).update({ 
+          status: 'failed', 
+          errorCode: params.Ds_Response,
+          updatedAt: new Date().toISOString()
+        });
+      } catch (e) {
+        console.error("Error marcando fallo en DB:", e);
+      }
     }
 
+    // Redsys espera siempre un OK
     res.status(200).send("OK");
   } catch (err) {
-    console.error("Error processando webhook de Redsys:", err);
-    res.status(500).send("ERROR");
+    console.error("🔥 Error crítico procesando webhook:", err);
+    res.status(200).send("OK-ERR"); // Respondemos OK a Redsys para que deje de reintentar si el fallo es nuestro
   }
 });
 
