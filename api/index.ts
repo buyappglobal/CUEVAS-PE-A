@@ -92,15 +92,16 @@ app.post(['/api/create-payment', '/create-payment'], (req, res) => {
 
     // Parámetros JSON para Redsys. 
     const params = {
-      Ds_Merchant_Amount: amountStr,
-      Ds_Merchant_Order: orderId,
-      Ds_Merchant_MerchantCode: MERCHANT_CODE,
+      Ds_Merchant_Amount: amountStr,            // "1000" para 10€
+      Ds_Merchant_Order: orderId,              // 12 dígitos (ej: 202604253754)
+      Ds_Merchant_MerchantCode: MERCHANT_CODE, // 369364104
       Ds_Merchant_Currency: '978',
-      Ds_Merchant_Terminal: TERMINAL,
       Ds_Merchant_TransactionType: '0',
-      Ds_Merchant_MerchantURL: `${baseUrl}/api/redsys-webhook`,
-      Ds_Merchant_UrlOK: `${baseUrl}?payment=success`,
-      Ds_Merchant_UrlKO: `${baseUrl}?payment=error`
+      Ds_Merchant_Terminal: '1',               // Ponlo exactamente como sale en el panel
+      Ds_Merchant_MerchantURL: `https://www.cuevasdealajar.com/api/redsys-webhook`,
+      Ds_Merchant_UrlOK: `https://www.cuevasdealajar.com?payment=success`,
+      Ds_Merchant_UrlKO: `https://www.cuevasdealajar.com?payment=error`,
+      Ds_Merchant_ConsumerLanguage: '001'
     };
 
     const paramsBase64 = Buffer.from(JSON.stringify(params), 'utf8').toString('base64');
