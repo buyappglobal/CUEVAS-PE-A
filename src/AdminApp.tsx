@@ -43,6 +43,7 @@ export default function AdminApp() {
       const matchesSearch = 
         r.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.customerEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.localizador?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.id?.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
@@ -460,7 +461,7 @@ export default function AdminApp() {
                 filteredReservations.map(r => (
                   <tr key={r.id} className="border-b border-[#E5E2D9]/5 hover:bg-[#E5E2D9]/5 transition-colors">
                     <td className="p-4 whitespace-nowrap text-[10px] font-mono text-[#E5E2D9]/40">
-                      {r.createdAt ? new Date(r.createdAt).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '---'}
+                      {r.createdAt ? new Date(r.createdAt).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }) : '---'}
                     </td>
                     <td className="p-4 whitespace-nowrap">
                       <div className="font-mono text-[#C4A484]">{r.date}</div>
