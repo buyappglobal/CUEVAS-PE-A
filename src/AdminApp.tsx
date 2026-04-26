@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { db, auth, loginWithGoogle, loginWithEmail, logout } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, query, getDocs, doc, getDoc, setDoc, updateDoc, increment, where, onSnapshot } from 'firebase/firestore';
-import { Calendar, Clock, Ticket, Users, FileText, CheckCircle, Plus, Trash2, LogOut, Mountain, X, RefreshCw } from 'lucide-react';
+import { Calendar, Clock, Ticket, Users, FileText, CheckCircle, Plus, Trash2, LogOut, Mountain, X, RefreshCw, Info, Ban, AlertCircle } from 'lucide-react';
 
 export default function AdminApp() {
   const [user, setUser] = useState<User | null>(null);
@@ -20,8 +20,41 @@ export default function AdminApp() {
   const [emailInput, setEmailInput] = useState('admin');
   const [passwordInput, setPasswordInput] = useState('');
   
-  // New manual reservation form
-  const [showNewModal, setShowNewModal] = useState(false);
+  // Tooltip helper component
+  const Tooltip = ({ text }: { text: string }) => (
+    <div className="group relative inline-block ml-1">
+      <Info className="w-3 h-3 text-[#C4A484]/50 hover:text-[#C4A484] cursor-help" />
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 p-2 bg-[#1A1A1A] border border-[#C4A484]/30 text-[10px] text-[#E5E2D9] rounded shadow-xl z-50 pointer-events-none">
+        {text}
+        <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-[#1A1A1A]"></div>
+      </div>
+    </div>
+  );
+
+  const [cancelModal, setCancelModal] = useState<{show: boolean, resId: string | null}>({ show: false, resId: null });
+
+  const handleCancelReservation = async (resId: string) => {
+    try {
+      const resData = allReservations.find(r => r.id === resId);
+      if (!resData) return;
+
+      // Restituir aforo
+      const slotId = `${resData.date}_${resData.time}`;
+      const slotRef = doc(db, 'slots', slotId);
+      await updateDoc(slotRef, { bookedCount: increment(-Number(resData.totalTickets || 0)) });
+
+      // Marcar como cancelado
+      await updateDoc(doc(db, 'reservations', resId), { 
+        status: 'cancelled',
+        cancelledAt: new Date().toISOString()
+      });
+
+      setCancelModal({ show: false, resId: null });
+      alert("Reserva anulada. Recuerda realizar la devolución manual en el terminal de Redsys si corresponde.");
+    } catch (e) {
+      alert("Error al anular: " + (e as Error).message);
+    }
+  };
   const [newRes, setNewRes] = useState({
     time: '11:00',
     customerName: '',
@@ -298,13 +331,34 @@ export default function AdminApp() {
           <table className="w-full text-left text-sm">
             <thead className="bg-[#0D0D0B] text-[#E5E2D9]/50 uppercase tracking-wider text-[10px] border-b border-[#E5E2D9]/10">
               <tr>
-                <th className="p-4">Fecha/Hora</th>
-                <th className="p-4">Localizador</th>
-                <th className="p-4">Cliente</th>
-                <th className="p-4">Tickets (A/R/I)</th>
-                <th className="p-4">Total</th>
-                <th className="p-4">Origen</th>
-                <th className="p-4">Estado</th>
+                <th className="p-4">
+                  Fecha/Hora
+                  <Tooltip text="Fecha y hora programada para la visita a la cueva." />
+                </th>
+                <th className="p-4">
+                  Localizador
+                  <Tooltip text="Código único de la reserva. Úsalo para buscar en Redsys si es necesario." />
+                </th>
+                <th className="p-4">
+                  Cliente
+                  <Tooltip text="Datos de contacto del comprador." />
+                </th>
+                <th className="p-4">
+                  Tickets (A/R/I)
+                  <Tooltip text="Desglose por tipo: Adulto / Reducida / Infantil (Gratis)." />
+                </th>
+                <th className="p-4">
+                  Total
+                  <Tooltip text="Número total de visitantes que ocupan plaza." />
+                </th>
+                <th className="p-4">
+                  Origen
+                  <Tooltip text="ONLINE: Venta web. MANUAL: Venta directa en taquilla." />
+                </th>
+                <th className="p-4">
+                  Estado
+                  <Tooltip text="PENDIENTE: Pago no finalizado. CONFIRMADO: Pago verificado. FALLIDO: Error en pago. CANCELADO: Anulada manual." />
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -353,7 +407,9 @@ export default function AdminApp() {
                             ? '✅ Confirmado' 
                             : r.status === 'pending' 
                               ? '⏳ Pendiente' 
-                              : '❌ Fallido'}
+                              : r.status === 'cancelled'
+                                ? '🚫 Anulada'
+                                : '❌ Fallido'}
                         </span>
                         {r.status === 'pending' && (
                           <button 
@@ -372,6 +428,15 @@ export default function AdminApp() {
                             <CheckCircle className="w-4 h-4" />
                           </button>
                         )}
+                        {(r.status === 'confirmed' || r.status === 'paid' || r.status === 'pending') && (
+                          <button 
+                            onClick={() => setCancelModal({ show: true, resId: r.id })}
+                            className="p-1 hover:text-red-400 text-red-600/50 transition-colors"
+                            title="Anular Reserva"
+                          >
+                            <Ban className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                       {r.errorCode && <div className="text-[9px] text-red-400 mt-1 font-mono">Respuesta Redsys: {r.errorCode}</div>}
                     </td>
@@ -382,6 +447,35 @@ export default function AdminApp() {
           </table>
         </div>
       </main>
+
+      {/* Cancel Confirmation Modal */}
+      {cancelModal.show && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[60]">
+          <div className="bg-[#151515] border border-red-900/50 p-8 max-w-sm w-full text-center shadow-2xl">
+            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h3 className="text-xl font-serif mb-2">¿Anular Reserva?</h3>
+            <p className="text-sm text-[#E5E2D9]/60 mb-6">
+              Esta acción liberará el aforo. 
+              <span className="block mt-2 font-bold text-red-400">IMPORTANTE: Esta herramienta NO devuelve el dinero automáticamente. Debes realizar la devolución desde tu terminal de Redsys.</span>
+            </p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setCancelModal({ show: false, resId: null })}
+                className="flex-1 py-2 border border-[#E5E2D9]/20 hover:bg-white/5 transition-colors text-xs uppercase font-bold"
+              >
+                Cerrar
+              </button>
+              <button 
+                onClick={() => cancelModal.resId && handleCancelReservation(cancelModal.resId)}
+                className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white text-xs uppercase font-bold transition-colors"
+                id="confirm-cancel-button"
+              >
+                Confirmar Anulación
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Manual Modal */}
       {showNewModal && (
