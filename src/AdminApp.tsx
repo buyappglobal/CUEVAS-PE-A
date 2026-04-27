@@ -101,7 +101,14 @@ export default function AdminApp() {
     const slotRes = allReservations.filter(r => 
       r.date === dateFilter && r.time === slot && (r.status === 'confirmed' || r.status === 'paid')
     );
-    const booked = slotRes.reduce((sum, r) => sum + (Number(r.totalTickets) || 0), 0);
+    const booked = slotRes.reduce((sum, r) => {
+      // Robustez: si totalTickets no existe, sumamos el desglose
+      let tickets = Number(r.totalTickets);
+      if (isNaN(tickets) || tickets === 0) {
+        tickets = Number(r.tickets?.adult || 0) + Number(r.tickets?.reduced || 0) + Number(r.tickets?.childFree || 0);
+      }
+      return sum + tickets;
+    }, 0);
     acc[slot] = { booked, remaining: Math.max(0, 30 - booked) };
     return acc;
   }, {} as Record<string, { booked: number, remaining: number }>);
@@ -455,78 +462,97 @@ Cuevas de Alájar`);
       </nav>
 
       <main className="max-w-6xl mx-auto p-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-          <div>
-            <h2 className="text-2xl font-serif mb-1">Gestión de Aforos y Reservas</h2>
-            <p className="text-[#E5E2D9]/60 text-sm">Visualiza las ventas online y registra entradas vendidas in-situ.</p>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
+            <div>
+              <h2 className="text-2xl font-serif mb-1">Gestión de Aforos y Reservas</h2>
+              <p className="text-[#E5E2D9]/60 text-sm">Visualiza las ventas online y registra entradas vendidas in-situ.</p>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-4 bg-[#151515] p-2 border border-[#E5E2D9]/10">
+              <div className="flex flex-col">
+                <span className="text-[9px] uppercase tracking-widest text-[#C4A484] mb-1 font-bold">Fecha de Consulta (Aforos)</span>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="date" 
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    className="bg-[#0D0D0B] border border-[#E5E2D9]/10 p-2 text-[#E5E2D9] text-xs focus:outline-none [&::-webkit-calendar-picker-indicator]:invert [color-scheme:dark]"
+                  />
+                  <button 
+                    onClick={fetchData}
+                    disabled={isRefreshing}
+                    className="bg-[#C4A484]/10 border border-[#C4A484]/30 p-2 text-[#C4A484] hover:bg-[#C4A484]/20 transition-colors disabled:opacity-50"
+                    title="Actualizar datos"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex flex-col border-l border-[#E5E2D9]/10 pl-4">
+                <span className="text-[9px] uppercase tracking-widest text-[#E5E2D9]/40 mb-1 font-bold">Filtro Listado</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setFilterByVisitDate(!filterByVisitDate)}
+                    className={`px-4 py-2 text-[10px] font-bold uppercase transition-all flex items-center gap-2 ${filterByVisitDate ? 'bg-[#C4A484] text-[#0D0D0B]' : 'bg-[#E5E2D9]/5 text-[#E5E2D9]/50 border border-[#E5E2D9]/10'}`}
+                  >
+                    {filterByVisitDate ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                    {filterByVisitDate ? 'Filtro Registro: ON' : 'Filtro Registro: OFF'}
+                  </button>
+                  <Tooltip text="ON: Muestra solo las reservas realizadas EN el día de consulta. OFF: Muestra todas las reservas (o por búsqueda)." />
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-            {/* Buscador Avanzado */}
-            <div className="relative flex-1 md:flex-none md:w-64">
+
+          <div className="flex flex-wrap items-center gap-3 mb-8 bg-[#151515]/50 p-4 border-b border-[#E5E2D9]/10">
+            <div className="relative flex-1 md:w-80">
               <input 
                 type="text" 
-                placeholder="Nombre, email o localizador..."
+                placeholder="Buscar por Nombre, Email o Localizador..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-[#151515] border border-[#E5E2D9]/10 p-2.5 pl-3 text-[#E5E2D9] text-xs focus:border-[#C4A484]/50 focus:outline-none transition-colors"
+                className="w-full bg-[#151515] border border-[#E5E2D9]/10 p-3 text-[#E5E2D9] text-xs focus:border-[#C4A484]/50 focus:outline-none transition-colors pr-10"
               />
             </div>
 
-            {/* Filtro de Estado */}
             <select 
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-[#151515] border border-[#E5E2D9]/10 p-2.5 text-[#E5E2D9] text-xs focus:border-[#C4A484]/50 focus:outline-none cursor-pointer min-w-[140px]"
+              className="bg-[#151515] border border-[#E5E2D9]/10 p-3 text-[#E5E2D9] text-xs focus:border-[#C4A484]/50 focus:outline-none cursor-pointer min-w-[160px]"
             >
               <option value="all">Todos los Estados</option>
               <option value="confirmed">✅ Confirmados</option>
+              <option value="paid">💰 Pagados (Redsys)</option>
               <option value="pending">⏳ Pendientes</option>
               <option value="failed">❌ Fallidos</option>
               <option value="cancelled">🚫 Anulados</option>
             </select>
 
-            <div className="h-8 w-px bg-[#E5E2D9]/10 mx-1 hidden md:block"></div>
+            <div className="flex-1"></div>
 
-            <div className="flex items-center gap-2 bg-[#151515] border border-[#E5E2D9]/10 p-1">
-              <input 
-                type="date" 
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="bg-transparent border-none p-1.5 text-[#E5E2D9] text-xs focus:outline-none [&::-webkit-calendar-picker-indicator]:invert"
-              />
-              <button
-                onClick={() => setFilterByVisitDate(!filterByVisitDate)}
-                title={filterByVisitDate ? "Filtrando por este día" : "Ver todas las fechas"}
-                className={`px-3 py-1.5 text-[10px] font-bold uppercase transition-colors ${filterByVisitDate ? 'bg-[#C4A484] text-[#0D0D0B]' : 'bg-[#E5E2D9]/5 text-[#E5E2D9]/50'}`}
-              >
-                {filterByVisitDate ? 'Día ON' : 'Día OFF'}
-              </button>
-            </div>
-            <button 
-              onClick={fetchData}
-              disabled={isRefreshing}
-              className="bg-[#151515] border border-[#E5E2D9]/20 p-2 text-[#E5E2D9] hover:bg-[#E5E2D9]/5 transition-colors disabled:opacity-50"
-              title="Actualizar datos"
-            >
-              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            </button>
             <button 
               onClick={() => setIsManualSaleOpen(true)}
-              className="bg-[#C4A484] text-[#0D0D0B] px-4 py-2 font-bold uppercase tracking-wider text-xs flex items-center gap-2 hover:bg-[#b09376]"
+              className="bg-[#C4A484] text-[#0D0D0B] px-6 py-2.5 font-bold uppercase tracking-wider text-xs flex items-center gap-2 hover:bg-[#E5E2D9] transition-all shadow-lg"
             >
               <Plus className="w-4 h-4" /> Venta Manual
             </button>
             <button 
               onClick={handleCleanup}
               disabled={isCleaning}
-              className="px-3 py-2 border border-red-900/50 text-red-500/50 text-[10px] uppercase font-bold tracking-widest hover:bg-red-900/20 transition-colors"
+              className="px-4 py-2.5 border border-red-900/30 text-red-500/40 text-[10px] uppercase font-bold tracking-widest hover:bg-red-900/20 transition-colors"
             >
-              {isCleaning ? 'Limpiando...' : 'BORRAR TODO'}
+              {isCleaning ? 'Limpiando...' : 'Borrar Todo'}
             </button>
           </div>
-        </div>
 
         {/* Dashboards Capacities (Basados en dateFilter) */}
+        <div className="mb-4 flex items-center gap-2">
+          <Mountain className="w-4 h-4 text-[#C4A484]" />
+          <h3 className="text-sm uppercase tracking-widest text-[#E5E2D9] font-bold">
+            Ocupación para el día {dateFilter.split('-').reverse().join('/')}
+          </h3>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {slots.map(slot => (
             <div key={slot} className="bg-[#151515] border border-[#E5E2D9]/10 p-6 flex flex-col justify-between relative overflow-hidden">
