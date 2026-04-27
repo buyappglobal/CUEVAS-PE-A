@@ -19,13 +19,16 @@ try {
 }
 
 if (admin.apps.length === 0) {
-  admin.initializeApp();
+  admin.initializeApp({
+    projectId: firebaseConfig.projectId
+  });
 }
 
 try {
   const dbId = firebaseConfig.firestoreDatabaseId;
+  // Initialize with the specific database ID from the config
   db = admin.firestore(dbId);
-  console.log(`✅ Firebase Admin initialized with DB: ${dbId}`);
+  console.log(`✅ Firebase Admin initialized. Project: ${firebaseConfig.projectId} | DB: ${dbId}`);
 } catch (e) {
   console.error("⚠️ Error initializing Firestore with specific ID, using default", e);
   db = admin.firestore();
@@ -73,13 +76,19 @@ function mac256(data: string, key: Buffer) {
 }
 
 // --- Endpoints ---
-app.get(['/api/health', '/health'], (req, res) => {
-  res.json({ 
-    status: 'ok',
-    dbInited: !!db,
-    resendInited: !!resend,
-    config: { merchantCode: MERCHANT_CODE, hasKey: !!process.env.REDSYS_SECRET_KEY }
-  });
+app.get(['/api/debug-db', '/debug-db'], async (req, res) => {
+  try {
+    const snap = await db.collection('reservations').orderBy('createdAt', 'desc').limit(5).get();
+    const reservations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    res.json({
+      count: reservations.length,
+      reservations,
+      databaseId: (db as any)._databaseId || 'default',
+      projectId: (db as any)._projectId || 'default'
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
@@ -107,34 +116,30 @@ app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
     };
 
     // Pre-save to CRM
-    try {
-      const totalTickets = (tickets.adult || 0) + (tickets.reduced || 0) + (tickets.childFree || 0);
-      await db.collection('reservations').doc(orderId).set({
-        localizador: orderId,
-        date,
-        time,
-        customerName: customer.name,
-        customerEmail: customer.email,
-        tickets,
-        totalTickets,
-        amount,
-        status: 'pending',
-        source: 'online',
-        createdAt: new Date().toISOString()
-      }, { merge: true });
+    const totalTickets = (tickets.adult || 0) + (tickets.reduced || 0) + (tickets.childFree || 0);
+    await db.collection('reservations').doc(orderId).set({
+      localizador: orderId,
+      date,
+      time,
+      customerName: customer.name,
+      customerEmail: customer.email,
+      tickets,
+      totalTickets,
+      amount,
+      status: 'pending',
+      source: 'online',
+      createdAt: new Date().toISOString()
+    }, { merge: true });
 
-      const slotId = `${date}_${time}`;
-      const slotRef = db.collection('slots').doc(slotId);
-      const slotSnap = await slotRef.get();
-      if (slotSnap.exists) {
-        await slotRef.update({ bookedCount: admin.firestore.FieldValue.increment(totalTickets) });
-      } else {
-        await slotRef.set({ date, time, bookedCount: totalTickets }, { merge: true });
-      }
-      console.log(`✅ DB: Reserva ${orderId} pre-registrada y aforo bloqueado`);
-    } catch (dbErr: any) {
-      console.error('⚠️ Error pre-registrando en DB:', dbErr.message);
+    const slotId = `${date}_${time}`;
+    const slotRef = db.collection('slots').doc(slotId);
+    const slotSnap = await slotRef.get();
+    if (slotSnap.exists) {
+      await slotRef.update({ bookedCount: admin.firestore.FieldValue.increment(totalTickets) });
+    } else {
+      await slotRef.set({ date, time, bookedCount: totalTickets }, { merge: true });
     }
+    console.log(`✅ DB: Reserva ${orderId} pre-registrada y aforo bloqueado`);
 
     const paramsBase64 = Buffer.from(JSON.stringify(params), 'utf8').toString('base64');
     const transactionKey = encrypt3DES(orderId, ACTUAL_SECRET);
@@ -175,28 +180,14 @@ app.post(['/api/redsys-webhook', '/redsys-webhook'], async (req, res) => {
       
       if (resSnap.exists) {
         const resData = resSnap.data();
-        if (resData && resData.status !== 'confirmed') {
+        if (resData && (resData.status === 'pending' || resData.status === 'failed')) {
           await resRef.update({ 
-            status: 'confirmed', 
+            status: 'paid', // Mark as paid but not yet confirmed/emailed
             paidAt: new Date().toISOString(),
             redsysResponse: responseCode,
             updatedAt: new Date().toISOString()
           });
-          
-          // Send Email
-          if (resData.customerEmail && process.env.RESEND_API_KEY) {
-            try {
-              await resend.emails.send({
-                from: 'Cuevas de la Peña <info@cuevasdealajar.com>',
-                to: resData.customerEmail,
-                subject: `🎟️ Reserva Confirmada #${orderId}`,
-                html: `<h1>¡Reserva Confirmada!</h1><p>Hola ${resData.customerName}, tu visita para el ${resData.date} a las ${resData.time} ha sido confirmada.</p>`
-              });
-              console.log(`✉️ Email enviado a ${resData.customerEmail}`);
-            } catch (e) {
-              console.error("❌ Email error:", e);
-            }
-          }
+          console.log(`💰 Pedido ${orderId} marcado como pagado via Webhook. Esperando confirmación manual.`);
         }
       }
     } else {
@@ -229,7 +220,11 @@ app.post(['/api/send-manual-email', '/send-manual-email'], async (req, res) => {
     const resSnap = await resRef.get();
     
     if (!resSnap.exists) return res.status(404).json({ error: 'Reserva no encontrada' });
-    const resData = resSnap.data();
+    const resData: any = resSnap.data();
+
+    if (!resData || !resData.tickets) {
+      return res.status(400).json({ error: 'La reserva no tiene datos de tickets válidos' });
+    }
 
       // Si el operario manda el email, es que ha validado el pago, por lo que marcamos como confirmado
       await resRef.update({ 
@@ -241,10 +236,10 @@ app.post(['/api/send-manual-email', '/send-manual-email'], async (req, res) => {
       const ticketsHtml = `
         <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
           <h3 style="margin-top: 0; border-bottom: 1px solid #ccc; padding-bottom: 10px;">Detalle de Entradas</h3>
-          ${resData.tickets.adult > 0 ? `<p><strong>Adultos:</strong> ${resData.tickets.adult}</p>` : ''}
-          ${resData.tickets.reduced > 0 ? `<p><strong>Reducidas:</strong> ${resData.tickets.reduced}</p>` : ''}
-          ${resData.tickets.childFree > 0 ? `<p><strong>Infantiles (Gratis):</strong> ${resData.tickets.childFree}</p>` : ''}
-          <p style="font-size: 18px; font-weight: bold; margin-top: 15px;">Total Pagado: ${resData.amount}€</p>
+          ${(resData.tickets.adult || 0) > 0 ? `<p><strong>Adultos:</strong> ${resData.tickets.adult}</p>` : ''}
+          ${(resData.tickets.reduced || 0) > 0 ? `<p><strong>Reducidas:</strong> ${resData.tickets.reduced}</p>` : ''}
+          ${(resData.tickets.childFree || 0) > 0 ? `<p><strong>Infantiles (Gratis):</strong> ${resData.tickets.childFree}</p>` : ''}
+          <p style="font-size: 18px; font-weight: bold; margin-top: 15px;">Total Pagado: ${resData.amount || 0}€</p>
         </div>
       `;
 
@@ -284,8 +279,8 @@ app.post(['/api/send-manual-email', '/send-manual-email'], async (req, res) => {
           </div>
         `
       });
-    res.status(400).json({ error: 'No se pudo enviar el correo' });
-  } catch (err: any) {
+      return res.json({ success: true, message: 'Email enviado correctamente' });
+    } catch (err: any) {
     console.error("❌ Manual Email Error:", err);
     res.status(500).json({ error: err.message });
   }

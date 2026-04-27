@@ -267,7 +267,7 @@ export default function AdminApp() {
       if (resp.ok) {
         alert("📧 Email enviado y reserva confirmada en el CRM.");
         // Refresh local data to reflect the status change
-        setReservations(prev => prev.map(r => r.localizador === orderId ? { ...r, status: 'confirmed' } : r));
+        setAllReservations(prev => prev.map(r => r.localizador === orderId ? { ...r, status: 'confirmed' } : r));
       } else {
         alert("❌ Error enviando email.");
       }
@@ -575,13 +575,17 @@ export default function AdminApp() {
                     <td className="p-4">
                       <div className="flex items-center gap-2">
                         <span className={`px-2 py-1 text-[10px] uppercase tracking-wider ${
-                          r.status === 'confirmed' || r.status === 'paid' 
+                          r.status === 'confirmed' 
                             ? 'bg-emerald-900/40 text-emerald-300' 
+                          : r.status === 'paid'
+                            ? 'bg-cyan-900/40 text-cyan-300 border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.2)]'
                             : r.status === 'pending'
                               ? 'bg-amber-900/40 text-amber-300 shadow-[0_0_8px_rgba(217,119,6,0.3)] animate-pulse'
                               : 'bg-red-900/40 text-red-300'
                         }`}>
-                          {r.status === 'paid' || r.status === 'confirmed' 
+                          {r.status === 'paid'
+                            ? '💰 Pagado'
+                          : r.status === 'confirmed' 
                             ? '✅ Confirmado' 
                             : r.status === 'pending' 
                               ? '⏳ Pendiente' 
@@ -589,22 +593,24 @@ export default function AdminApp() {
                                 ? '🚫 Anulada'
                                 : '❌ Fallido'}
                         </span>
-                        {r.status === 'pending' && (
+                        {(r.status === 'pending' || r.status === 'paid') && (
                           <button 
                             onClick={() => setConfirmModal({ show: true, resId: r.id })}
-                            className="p-1 hover:text-emerald-400 text-emerald-600 transition-colors"
+                            className={`p-1 transition-colors ${r.status === 'paid' ? 'text-cyan-400 hover:text-cyan-200' : 'text-emerald-600 hover:text-emerald-400'}`}
                             title="Confirmar Manualmente"
                           >
                             <CheckCircle className="w-4 h-4" />
                           </button>
                         )}
-                        <button 
-                          onClick={() => handleSendManualEmail(r.localizador)}
-                          className="p-1 hover:text-blue-400 text-blue-600/50 transition-colors"
-                          title="Enviar Email de Comprobante"
-                        >
-                          <Mail className="w-4 h-4" />
-                        </button>
+                        {(r.status === 'paid' || r.status === 'confirmed') && (
+                          <button 
+                            onClick={() => handleSendManualEmail(r.localizador)}
+                            className={`p-1 transition-colors ${r.status === 'paid' ? 'text-blue-400 hover:text-blue-200 animate-bounce' : 'text-blue-600/50 hover:text-blue-400'}`}
+                            title="Enviar Email de Comprobante"
+                          >
+                            <Mail className="w-4 h-4" />
+                          </button>
+                        )}
                         {(r.status === 'confirmed' || r.status === 'paid' || r.status === 'pending') && (
                           <button 
                             onClick={() => setCancelModal({ show: true, resId: r.id })}

@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { db } from './firebase';
 import { collection, doc, setDoc, getDoc, updateDoc, increment, query, where, onSnapshot } from 'firebase/firestore';
+import { Gallery } from './components/Gallery';
 import { 
   MapPin, Calendar, Ticket, ChevronRight, Mountain, 
   Leaf, History, Utensils, ArrowRight, Clock, Users, X, Info, Camera, Tent,
@@ -329,6 +330,7 @@ export default function App() {
           </button>
           <div className="hidden md:flex items-center gap-8 text-[11px] uppercase tracking-[0.15em] font-medium text-[#E5E2D9]/70">
             <a href="#descubre" className="hover:text-[#E5E2D9] transition-colors">Las Cuevas</a>
+            <a href="#galeria" className="hover:text-[#E5E2D9] transition-colors">Galería</a>
             <a href="#visitas" className="hover:text-[#E5E2D9] transition-colors">Visitas y Tarifas</a>
             <a href="#alajar" className="hover:text-[#E5E2D9] transition-colors">Descubre Alájar</a>
             <button onClick={() => openBooking()} className="text-[#C4A484] hover:opacity-100 opacity-80 font-bold transition-opacity">
@@ -451,6 +453,9 @@ export default function App() {
           </div>
         </div>
       </section>
+
+      {/* Gallery Section */}
+      <Gallery />
 
       {/* Visitas Guiadas */}
       <section id="visitas" className="py-24 bg-[#0D0D0B] border-t border-[#E5E2D9]/10">
