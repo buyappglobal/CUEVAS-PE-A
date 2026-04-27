@@ -64,6 +64,66 @@ export default function AdminApp() {
     </div>
   );
 
+  // Status Badge Helper
+  const StatusBadge = ({ r }: { r: any }) => (
+    <span className={`px-2 py-1 text-[10px] uppercase tracking-wider ${
+      r.status === 'confirmed' 
+        ? 'bg-emerald-900/40 text-emerald-300' 
+      : r.status === 'paid'
+        ? 'bg-cyan-900/40 text-cyan-300 border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.2)]'
+        : r.status === 'pending'
+          ? 'bg-amber-900/40 text-amber-300 shadow-[0_0_8px_rgba(217,119,6,0.3)] animate-pulse'
+          : 'bg-red-900/40 text-red-300'
+    }`}>
+      {r.status === 'paid' ? '💰 Pagado' : 
+       r.status === 'confirmed' ? '✅ Confirmado' : 
+       r.status === 'pending' ? '⏳ Pendiente' : 
+       r.status === 'cancelled' ? '🚫 Anulada' : '❌ Fallido'}
+    </span>
+  );
+
+  // Action Buttons Helper
+  const ActionButtons = ({ r }: { r: any }) => (
+    <div className="flex items-center gap-2">
+      {(r.status === 'pending' || r.status === 'paid') && (
+        <button 
+          onClick={() => setConfirmModal({ show: true, resId: r.id })}
+          className={`p-1 transition-colors ${r.status === 'paid' ? 'text-cyan-400 hover:text-cyan-200' : 'text-emerald-600 hover:text-emerald-400'}`}
+          title="Confirmar Manualmente"
+        >
+          <CheckCircle className="w-5 h-5 lg:w-4 lg:h-4" />
+        </button>
+      )}
+      {(r.status === 'paid' || r.status === 'confirmed') && (
+        <div className="flex items-center gap-1">
+          <button 
+            onClick={() => handleSendManualEmail(r.localizador)}
+            className={`p-1 transition-colors ${r.status === 'paid' ? 'text-blue-400 hover:text-blue-200 animate-pulse' : 'text-blue-600/50 hover:text-blue-400'}`}
+            title="Abrir Email (Mailto)"
+          >
+            <Mail className="w-5 h-5 lg:w-4 lg:h-4" />
+          </button>
+          <button 
+            onClick={() => alert("📤 Envío de email vía sistema en desarrollo (Resend). Por favor, use el botón de Mailto para enviar manualmente.")}
+            className="p-1 text-[#E5E2D9]/20 hover:text-[#C4A484] transition-colors cursor-help"
+            title="Enviar vía Sistema (En desarrollo)"
+          >
+            <RefreshCw className="w-4 h-4 lg:w-3 lg:h-3" />
+          </button>
+        </div>
+      )}
+      {(r.status === 'confirmed' || r.status === 'paid' || r.status === 'pending') && (
+        <button 
+          onClick={() => setCancelModal({ show: true, resId: r.id })}
+          className="p-1 hover:text-red-400 text-red-600/50 transition-colors"
+          title="Anular Reserva"
+        >
+          <Ban className="w-5 h-5 lg:w-4 lg:h-4" />
+        </button>
+      )}
+    </div>
+  );
+
   const [cancelModal, setCancelModal] = useState<{show: boolean, resId: string | null}>({ show: false, resId: null });
   const [confirmModal, setConfirmModal] = useState<{show: boolean, resId: string | null}>({ show: false, resId: null });
 
@@ -586,7 +646,9 @@ Cuevas de Alájar`);
             </span>
           )}
         </div>
-        <div className="bg-[#151515] border border-[#E5E2D9]/10">
+
+        {/* VISTA DESKTOP (TABLA) */}
+        <div className="hidden lg:block bg-[#151515] border border-[#E5E2D9]/10">
           <table className="w-full text-left text-sm">
             <thead className="bg-[#0D0D0B] text-[#E5E2D9]/50 uppercase tracking-wider text-[10px] border-b border-[#E5E2D9]/10">
               <tr>
@@ -675,61 +737,8 @@ Cuevas de Alájar`);
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-2">
-                        <span className={`px-2 py-1 text-[10px] uppercase tracking-wider ${
-                          r.status === 'confirmed' 
-                            ? 'bg-emerald-900/40 text-emerald-300' 
-                          : r.status === 'paid'
-                            ? 'bg-cyan-900/40 text-cyan-300 border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.2)]'
-                            : r.status === 'pending'
-                              ? 'bg-amber-900/40 text-amber-300 shadow-[0_0_8px_rgba(217,119,6,0.3)] animate-pulse'
-                              : 'bg-red-900/40 text-red-300'
-                        }`}>
-                          {r.status === 'paid'
-                            ? '💰 Pagado'
-                          : r.status === 'confirmed' 
-                            ? '✅ Confirmado' 
-                            : r.status === 'pending' 
-                              ? '⏳ Pendiente' 
-                              : r.status === 'cancelled'
-                                ? '🚫 Anulada'
-                                : '❌ Fallido'}
-                        </span>
-                        {(r.status === 'pending' || r.status === 'paid') && (
-                          <button 
-                            onClick={() => setConfirmModal({ show: true, resId: r.id })}
-                            className={`p-1 transition-colors ${r.status === 'paid' ? 'text-cyan-400 hover:text-cyan-200' : 'text-emerald-600 hover:text-emerald-400'}`}
-                            title="Confirmar Manualmente"
-                          >
-                            <CheckCircle className="w-4 h-4" />
-                          </button>
-                        )}
-                        {(r.status === 'paid' || r.status === 'confirmed') && (
-                          <div className="flex items-center gap-1">
-                            <button 
-                              onClick={() => handleSendManualEmail(r.localizador)}
-                              className={`p-1 transition-colors ${r.status === 'paid' ? 'text-blue-400 hover:text-blue-200 animate-pulse' : 'text-blue-600/50 hover:text-blue-400'}`}
-                              title="Abrir Email (Mailto)"
-                            >
-                              <Mail className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={() => alert("📤 Envío de email vía sistema en desarrollo (Resend). Por favor, use el botón de Mailto para enviar manualmente.")}
-                              className="p-1 text-[#E5E2D9]/20 hover:text-[#C4A484] transition-colors cursor-help"
-                              title="Enviar vía Sistema (En desarrollo)"
-                            >
-                              <RefreshCw className="w-3 h-3" />
-                            </button>
-                          </div>
-                        )}
-                        {(r.status === 'confirmed' || r.status === 'paid' || r.status === 'pending') && (
-                          <button 
-                            onClick={() => setCancelModal({ show: true, resId: r.id })}
-                            className="p-1 hover:text-red-400 text-red-600/50 transition-colors"
-                            title="Anular Reserva"
-                          >
-                            <Ban className="w-4 h-4" />
-                          </button>
-                        )}
+                        <StatusBadge r={r} />
+                        <ActionButtons r={r} />
                       </div>
                       {r.errorCode && <div className="text-[9px] text-red-400 mt-1 font-mono">Respuesta Redsys: {r.errorCode}</div>}
                     </td>
@@ -738,6 +747,58 @@ Cuevas de Alájar`);
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* VISTA MOVIL (TARJETAS) */}
+        <div className="lg:hidden space-y-4">
+          {filteredReservations.length === 0 ? (
+            <div className="p-12 bg-[#151515] border border-[#E5E2D9]/10 text-center text-[#E5E2D9]/40 italic">
+              No hay resultados.
+            </div>
+          ) : (
+            filteredReservations.map(r => (
+              <div key={r.id} className="bg-[#151515] border border-[#E5E2D9]/10 p-5 space-y-4 relative overflow-hidden group">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="text-[10px] font-mono text-[#E5E2D9]/40 mb-1">#{r.localizador}</div>
+                    <div className="font-serif text-lg text-[#E5E2D9]">{r.customerName}</div>
+                    <div className="text-[10px] text-[#E5E2D9]/40 flex items-center gap-1">
+                      <Mail className="w-3 h-3" />
+                      {r.customerEmail}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <StatusBadge r={r} />
+                    <span className={`px-2 py-0.5 text-[9px] uppercase tracking-wider ${r.source === 'online' ? 'bg-blue-900/20 text-blue-300' : 'bg-green-900/20 text-green-300'}`}>
+                      {r.source}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 border-y border-[#E5E2D9]/5 py-3">
+                  <div className="space-y-1 border-r border-[#E5E2D9]/5">
+                    <div className="text-[9px] uppercase tracking-tighter text-[#E5E2D9]/30 font-bold">Visita</div>
+                    <div className="font-mono text-[#C4A484] text-sm">{r.date}</div>
+                    <div className="text-xs text-[#E5E2D9] font-bold">{r.time}</div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-[9px] uppercase tracking-tighter text-[#E5E2D9]/30 font-bold">Tickets (A/R/I)</div>
+                    <div className="text-sm font-bold text-[#E5E2D9]">
+                      {r.totalTickets} <span className="text-[10px] font-normal text-[#E5E2D9]/40 tracking-widest ml-1">({r.tickets?.adult}/{r.tickets?.reduced}/{r.tickets?.childFree})</span>
+                    </div>
+                    <div className="text-[9px] text-[#E5E2D9]/40 italic">Registro: {r.createdAt ? new Date(r.createdAt).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '---'}</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <div className="text-xl font-light text-[#C4A484]">{r.totalPrice}€</div>
+                  <div className="flex items-center gap-3">
+                    <ActionButtons r={r} />
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </main>
 
