@@ -231,32 +231,59 @@ app.post(['/api/send-manual-email', '/send-manual-email'], async (req, res) => {
     if (!resSnap.exists) return res.status(404).json({ error: 'Reserva no encontrada' });
     const resData = resSnap.data();
 
-    if (resData && resData.customerEmail && process.env.RESEND_API_KEY) {
-      const isConfirmed = resData.status === 'confirmed' || resData.status === 'paid';
-      
+      // Si el operario manda el email, es que ha validado el pago, por lo que marcamos como confirmado
+      await resRef.update({ 
+        status: 'confirmed', 
+        verifiedManually: true,
+        verifiedAt: new Date().toISOString()
+      });
+
+      const ticketsHtml = `
+        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <h3 style="margin-top: 0; border-bottom: 1px solid #ccc; padding-bottom: 10px;">Detalle de Entradas</h3>
+          ${resData.tickets.adult > 0 ? `<p><strong>Adultos:</strong> ${resData.tickets.adult}</p>` : ''}
+          ${resData.tickets.reduced > 0 ? `<p><strong>Reducidas:</strong> ${resData.tickets.reduced}</p>` : ''}
+          ${resData.tickets.childFree > 0 ? `<p><strong>Infantiles (Gratis):</strong> ${resData.tickets.childFree}</p>` : ''}
+          <p style="font-size: 18px; font-weight: bold; margin-top: 15px;">Total Pagado: ${resData.amount}€</p>
+        </div>
+      `;
+
       await resend.emails.send({
         from: 'Cuevas de la Peña <info@cuevasdealajar.com>',
         to: resData.customerEmail,
-        subject: isConfirmed ? `🎟️ Comprobante de Reserva #${orderId}` : `⏳ Resumen de solicitud #${orderId}`,
+        subject: `🎟️ Tu entrada confirmada - Peña de Arias Montano (#${orderId})`,
         html: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
-            <h1 style="color: #C4A484;">${isConfirmed ? '¡Reserva Confirmada!' : 'Resumen de tu solicitud'}</h1>
+          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; color: #333; line-height: 1.6;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <img src="https://solonet.es/wp-content/uploads/2026/04/ICONO-CUEVAS-ALAJAR.png" alt="Logo" style="width: 80px; height: auto;">
+              <h1 style="color: #C4A484; font-weight: 300; margin-top: 10px;">Reserva Confirmada</h1>
+            </div>
+            
             <p>Hola <strong>${resData.customerName}</strong>,</p>
-            <p>Este es el detalle de tu reserva para visitar las Cuevas de la Peña de Arias Montano:</p>
-            <ul style="list-style: none; padding: 0;">
-              <li><strong>Fecha:</strong> ${resData.date}</li>
-              <li><strong>Hora:</strong> ${resData.time}h</li>
-              <li><strong>Localizador:</strong> #${orderId}</li>
-              <li><strong>Estado:</strong> ${resData.status.toUpperCase()}</li>
+            <p>Nos complace confirmarte que tu reserva para visitar las <strong>Cuevas de la Peña de Arias Montano</strong> ha sido validada correctamente.</p>
+            
+            <div style="border-left: 4px solid #C4A484; padding-left: 20px; margin: 30px 0;">
+              <p style="margin: 5px 0;"><strong>Fecha:</strong> ${resData.date.split('-').reverse().join('/')}</p>
+              <p style="margin: 5px 0;"><strong>Hora:</strong> ${resData.time}h</p>
+              <p style="margin: 5px 0;"><strong>Localizador:</strong> <span style="background: #eee; padding: 2px 6px; border-radius: 3px;">#${orderId}</span></p>
+            </div>
+
+            ${ticketsHtml}
+
+            <p><strong>Información importante:</strong></p>
+            <ul style="color: #666; font-size: 14px;">
+              <li>Por favor, llega 10 minutos antes de tu hora reservada.</li>
+              <li>Presenta este email (digital o impreso) en la taquilla del Centro de Visitantes.</li>
+              <li>La visita se realiza en las Cuevas de la Peña, Alájar (Huelva).</li>
             </ul>
-            <p style="margin-top: 20px; font-size: 12px; color: #666;">
-              Si tienes cualquier duda, por favor contacta con nosotros respondiendo a este email.
-            </p>
+
+            <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #999;">
+              <p>Cuevas de la Peña de Arias Montano - Ayuntamiento de Alájar</p>
+              <p>Si tienes alguna pregunta, contacta con nosotros en <a href="mailto:info@cuevasdealajar.com" style="color: #C4A484;">info@cuevasdealajar.com</a></p>
+            </div>
           </div>
         `
       });
-      return res.json({ success: true });
-    }
     res.status(400).json({ error: 'No se pudo enviar el correo' });
   } catch (err: any) {
     console.error("❌ Manual Email Error:", err);

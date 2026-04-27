@@ -253,18 +253,31 @@ export default function AdminApp() {
     }
   };
 
-  const handleSendManualEmail = async (orderId: string) => {
+  const [confirmEmailModal, setConfirmEmailModal] = useState<{ show: boolean, orderId: string }>({ show: false, orderId: '' });
+
+  const executeManualEmail = async () => {
+    const { orderId } = confirmEmailModal;
+    setConfirmEmailModal({ show: false, orderId: '' });
     try {
       const resp = await fetch('/api/send-manual-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId })
       });
-      if (resp.ok) alert("📧 Email enviado correctamente al cliente.");
-      else alert("❌ Error enviando email.");
+      if (resp.ok) {
+        alert("📧 Email enviado y reserva confirmada en el CRM.");
+        // Refresh local data to reflect the status change
+        setReservations(prev => prev.map(r => r.localizador === orderId ? { ...r, status: 'confirmed' } : r));
+      } else {
+        alert("❌ Error enviando email.");
+      }
     } catch (e) {
       alert("Error: " + (e as Error).message);
     }
+  };
+
+  const handleSendManualEmail = (orderId: string) => {
+    setConfirmEmailModal({ show: true, orderId });
   };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
@@ -636,6 +649,42 @@ export default function AdminApp() {
                 className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs uppercase font-bold transition-colors"
               >
                 Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Email Confirmation Modal */}
+      {confirmEmailModal.show && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
+          <div className="bg-[#151515] border border-blue-900/30 p-8 max-w-sm w-full text-center shadow-2xl">
+            <Mail className="w-16 h-16 text-blue-400 mx-auto mb-4" />
+            <h3 className="text-xl font-serif mb-2 text-[#E5E2D9]">Confirmar Envío de Email</h3>
+            
+            <p className="text-sm text-[#E5E2D9]/70 mb-6 leading-relaxed">
+              ¿Has comprobado primero en el panel de <strong>Redsys</strong> que el pago del pedido <span className="text-[#E5E2D9]">#{confirmEmailModal.orderId}</span> es correcto?
+            </p>
+            
+            <div className="bg-blue-900/10 border border-blue-900/50 p-4 mb-8">
+              <p className="text-[10px] text-blue-300 flex items-start gap-2 text-left">
+                <Info className="w-4 h-4 flex-shrink-0" />
+                Al confirmar, se enviará el email oficial de reserva al cliente y el estado pasará a <strong>CONFIRMADO</strong> automáticamente en el CRM.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button 
+                onClick={() => setConfirmEmailModal({ show: false, orderId: '' })}
+                className="py-2 border border-[#E5E2D9]/10 hover:bg-[#E5E2D9]/5 transition-colors text-[10px] uppercase font-bold tracking-wider"
+              >
+                Cerrar
+              </button>
+              <button 
+                onClick={executeManualEmail}
+                className="py-2 bg-blue-600 hover:bg-blue-500 text-white transition-colors text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-2"
+              >
+                Confirmar y Enviar
               </button>
             </div>
           </div>
