@@ -20,27 +20,52 @@ try {
 }
 
 const getFirestoreConfig = () => {
+  // Option A: Full JSON string (Most robust)
+  const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (serviceAccountVar) {
+    try {
+      console.log("🔐 Firebase Admin: Usando Service Account desde JSON completo...");
+      const serviceAccount = JSON.parse(serviceAccountVar);
+      return {
+        credential: admin.credential.cert(serviceAccount),
+        projectId: serviceAccount.project_id
+      };
+    } catch (e) {
+      console.error("❌ Error parseando FIREBASE_SERVICE_ACCOUNT:", e);
+    }
+  }
+
+  // Option B: Individual variables (Legacy/Fallback)
   const privateKey = process.env.FIREBASE_PRIVATE_KEY;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const projectId = process.env.FIREBASE_PROJECT_ID || firebaseConfig.projectId;
 
   if (privateKey && clientEmail) {
-    // Robust key formatting: remove quotes, fix newlines
-    const formattedKey = privateKey
-      .replace(/^['"]|['"]$/g, '') // Remove wrapping quotes
-      .replace(/\\n/g, '\n');      // Fix escaped newlines
+    console.log("🔐 Firebase Admin: Configurando con Service Account (Individual Vars)...");
+    let formattedKey = privateKey
+      .trim()
+      .replace(/^['"]+|['"]+$/g, '') 
+      .replace(/\\\\n/g, '\n')      
+      .replace(/\\n/g, '\n');       
+
+    if (!formattedKey.includes('-----BEGIN PRIVATE KEY-----')) {
+       formattedKey = `-----BEGIN PRIVATE KEY-----\n${formattedKey}`;
+    }
+    if (!formattedKey.includes('-----END PRIVATE KEY-----')) {
+       formattedKey = `${formattedKey}\n-----END PRIVATE KEY-----`;
+    }
 
     return {
       credential: admin.credential.cert({
-        projectId,
-        clientEmail,
+        projectId: projectId.trim(),
+        clientEmail: clientEmail.trim(),
         privateKey: formattedKey,
       }),
-      projectId
+      projectId: projectId.trim()
     };
   }
   
-  // Fallback to simpler init if no service account provided
+  console.log("ℹ️ Firebase Admin: Usando configuración de proyecto por defecto.");
   return { projectId };
 };
 
