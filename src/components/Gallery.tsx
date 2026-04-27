@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Maximize2, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { X, Maximize2, ChevronLeft, ChevronRight, Loader2, Plus } from 'lucide-react';
 
 interface GalleryImage {
   id: string;
@@ -14,35 +14,48 @@ const FOLDER_ID = import.meta.env.VITE_DRIVE_FOLDER_ID;
 
 export const Gallery: React.FC = () => {
   const [images, setImages] = useState<GalleryImage[]>([]);
+  const [visibleCount, setVisibleCount] = useState(15);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
 
   useEffect(() => {
+    console.log("🔍 Gallery: Iniciando carga de imágenes", { hasKey: !!DRIVE_API_KEY, folder: FOLDER_ID });
+    
     const fetchImages = async () => {
       if (!DRIVE_API_KEY || !FOLDER_ID) {
-        console.warn("Google Drive API Key o Folder ID no configurados");
+        console.warn("⚠️ Google Drive API Key o Folder ID no configurados en .env");
         setIsLoading(false);
         return;
       }
 
       try {
-        const response = await fetch(
-          `https://www.googleapis.com/drive/v3/files?q='${FOLDER_ID}'+in+parents+and+mimeType+contains+'image/'&fields=files(id,name)&key=${DRIVE_API_KEY}`
-        );
+        const query = `'${FOLDER_ID}'+in+parents+and+mimeType+contains+'image/'+and+trashed=false`;
+        const url = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,webContentLink)&key=${DRIVE_API_KEY}`;
+        
+        console.log("📡 Gallery: Llamando a Google API...");
+        const response = await fetch(url);
         const data = await response.json();
         
-        if (data.files) {
+        if (data.error) {
+          console.error("❌ Google Drive API Error:", data.error);
+          setIsLoading(false);
+          return;
+        }
+
+        if (data.files && data.files.length > 0) {
+          console.log(`✅ Gallery: ${data.files.length} imágenes encontradas`);
           const fetchedImages: GalleryImage[] = data.files.map((file: any, index: number) => ({
             id: file.id,
             url: `https://lh3.googleusercontent.com/d/${file.id}`,
             caption: file.name.split('.')[0].replace(/[-_]/g, ' '),
-            // Asignamos spans aleatorios o basados en indice para el diseño bento
-            span: index === 0 ? 'col-span-2 row-span-2' : index === 3 ? 'col-span-1 row-span-2' : ''
+            span: index === 0 ? 'col-span-2 row-span-2' : (index % 5 === 0) ? 'col-span-1 row-span-2' : ''
           }));
           setImages(fetchedImages);
+        } else {
+          console.warn("📁 Gallery: No se encontraron imágenes en la carpeta especificada.");
         }
       } catch (error) {
-        console.error("Error fetching images from Drive:", error);
+        console.error("🔥 Gallery: Error crítico en fetch:", error);
       } finally {
         setIsLoading(false);
       }
@@ -110,13 +123,13 @@ export const Gallery: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-[200px] md:auto-rows-[250px]">
-          {images.map((img, index) => (
+          {images.slice(0, visibleCount).map((img, index) => (
             <motion.div
               key={img.id}
               initial={{ opacity: 0, scale: 0.9 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
-              transition={{ delay: index * 0.05 }}
+              transition={{ delay: (index % 15) * 0.05 }}
               className={`relative group overflow-hidden cursor-pointer bg-[#151513] border border-[#E5E2D9]/5 ${img.span || ''}`}
               onClick={() => openLightbox(index)}
             >
@@ -135,6 +148,18 @@ export const Gallery: React.FC = () => {
             </motion.div>
           ))}
         </div>
+
+        {visibleCount < images.length && (
+          <div className="mt-16 text-center">
+            <button 
+              onClick={() => setVisibleCount(prev => prev + 15)}
+              className="group relative px-8 py-4 bg-transparent border border-[#C4A484]/30 hover:border-[#C4A484] text-[#C4A484] text-[11px] uppercase tracking-[0.3em] font-bold transition-all duration-300 flex items-center gap-3 mx-auto"
+            >
+              <Plus className="w-4 h-4 transition-transform group-hover:rotate-90" />
+              Ver más imágenes
+            </button>
+          </div>
+        )}
       </div>
 
       <AnimatePresence>

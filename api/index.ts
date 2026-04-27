@@ -4,10 +4,11 @@ import path from 'path';
 import cors from 'cors';
 import { Resend } from 'resend';
 import admin from 'firebase-admin';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { readFileSync } from 'fs';
 
 // --- Initialization ---
-let db: admin.firestore.Firestore;
+let db: any;
 let resend: Resend;
 
 const firebaseConfigPath = path.join(process.cwd(), 'firebase-applet-config.json');
@@ -18,20 +19,17 @@ try {
   console.error("❌ Could not read firebase-applet-config.json", e);
 }
 
-if (admin.apps.length === 0) {
-  admin.initializeApp({
-    projectId: firebaseConfig.projectId
-  });
-}
+const firebaseApp = admin.apps.length === 0 
+  ? admin.initializeApp({ projectId: firebaseConfig.projectId })
+  : admin.app();
 
 try {
   const dbId = firebaseConfig.firestoreDatabaseId;
-  // Initialize with the specific database ID from the config
-  db = admin.firestore(dbId);
+  db = getFirestore(firebaseApp, dbId);
   console.log(`✅ Firebase Admin initialized. Project: ${firebaseConfig.projectId} | DB: ${dbId}`);
 } catch (e) {
   console.error("⚠️ Error initializing Firestore with specific ID, using default", e);
-  db = admin.firestore();
+  db = getFirestore(firebaseApp);
 }
 
 resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_fallback_so_it_doesnt_crash');
@@ -116,7 +114,12 @@ app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
     };
 
     // Pre-save to CRM
-    const totalTickets = (tickets.adult || 0) + (tickets.reduced || 0) + (tickets.childFree || 0);
+    const totalTickets = Number(tickets.adult || 0) + Number(tickets.reduced || 0) + Number(tickets.childFree || 0);
+    
+    if (!db) {
+      throw new Error("Base de datos no inicializada correctamente.");
+    }
+
     await db.collection('reservations').doc(orderId).set({
       localizador: orderId,
       date,
@@ -135,7 +138,7 @@ app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
     const slotRef = db.collection('slots').doc(slotId);
     const slotSnap = await slotRef.get();
     if (slotSnap.exists) {
-      await slotRef.update({ bookedCount: admin.firestore.FieldValue.increment(totalTickets) });
+      await slotRef.update({ bookedCount: FieldValue.increment(totalTickets) });
     } else {
       await slotRef.set({ date, time, bookedCount: totalTickets }, { merge: true });
     }
@@ -146,9 +149,12 @@ app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
     const signature = mac256(paramsBase64, transactionKey);
 
     res.json({ url: REDSYS_URL, paramsBase64, signature, version: 'HMAC_SHA256_V1' });
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error Redsys Init:', error);
-    res.status(500).json({ error: 'Fallo al procesar parámetros de pago' });
+    res.status(500).json({ 
+      error: 'Fallo al procesar parámetros de pago',
+      details: error.message 
+    });
   }
 });
 
@@ -198,7 +204,7 @@ app.post(['/api/redsys-webhook', '/redsys-webhook'], async (req, res) => {
         if (resData && resData.status === 'pending') {
           const slotId = `${resData.date}_${resData.time}`;
           await db.collection('slots').doc(slotId).update({ 
-            bookedCount: admin.firestore.FieldValue.increment(-resData.totalTickets) 
+            bookedCount: FieldValue.increment(-resData.totalTickets) 
           });
           await resRef.update({ status: 'failed', errorCode: responseCode });
         }

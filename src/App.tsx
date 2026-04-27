@@ -230,20 +230,21 @@ export default function App() {
         })
       });
       
+      const session = await response.json();
+
       if (!response.ok) {
-        throw new Error("Error registrando la reserva en el sistema");
+        throw new Error(session.details || session.error || "Error registrando la reserva en el sistema");
       }
 
-      const session = await response.json();
       setRedsysParams(session);
       
       // Cerramos el modal de reserva y abrimos el de resumen
       setIsBookingModalOpen(false);
       setIsSummaryModalOpen(true);
       setIsLoadingPayment(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("Error al registrar los datos. Por favor, inténtelo de nuevo.");
+      alert(`Error al registrar los datos: ${error.message || "Por favor, inténtelo de nuevo."}`);
       setIsLoadingPayment(false);
     }
   };
