@@ -20,7 +20,16 @@ try {
 }
 
 const firebaseApp = admin.apps.length === 0 
-  ? admin.initializeApp({ projectId: firebaseConfig.projectId })
+  ? admin.initializeApp({ 
+      credential: process.env.FIREBASE_PRIVATE_KEY 
+        ? admin.credential.cert({
+            projectId: process.env.FIREBASE_PROJECT_ID || firebaseConfig.projectId,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+          })
+        : admin.credential.applicationDefault(),
+      projectId: firebaseConfig.projectId 
+    })
   : admin.app();
 
 try {
