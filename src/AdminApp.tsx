@@ -15,7 +15,11 @@ export default function AdminApp() {
   const [allReservations, setAllReservations] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]);
+  const [dateFilter, setDateFilter] = useState(() => {
+    const d = new Date();
+    // Obtener YYYY-MM-DD en hora local
+    return new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+  });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filterByVisitDate, setFilterByVisitDate] = useState(true);
   
@@ -52,7 +56,10 @@ export default function AdminApp() {
       const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
       
       // 3. Filtro por Fecha de Visita (Opcional)
-      const matchesVisitDate = !filterByVisitDate || r.date === dateFilter;
+      // Normalizamos ambos strings por si acaso vienen con formatos ligeramente distintos
+      const rDate = r.date ? r.date.trim() : '';
+      const fDate = dateFilter ? dateFilter.trim() : '';
+      const matchesVisitDate = !filterByVisitDate || rDate === fDate;
       
       return matchesSearch && matchesStatus && matchesVisitDate;
     })
@@ -277,7 +284,33 @@ export default function AdminApp() {
   };
 
   const handleSendManualEmail = (orderId: string) => {
-    setConfirmEmailModal({ show: true, orderId });
+    const r = allReservations.find(res => res.localizador === orderId);
+    if (!r) return;
+
+    const subject = encodeURIComponent(`Reserva Confirmada #${r.localizador} - Cuevas de Alájar`);
+    const body = encodeURIComponent(`Hola ${r.customerName},
+
+Confirmamos tu reserva para la visita a las Cuevas de la Peña de Arias Montano.
+
+DETALLES:
+- Localizador: #${r.localizador}
+- Fecha: ${r.date}
+- Hora: ${r.time}
+- Plazas: ${r.totalTickets}
+
+Recuerda acudir 10 minutos antes a la entrada de las Cuevas.
+
+Saludos,
+Cuevas de Alájar`);
+
+    window.location.href = `mailto:${r.customerEmail}?subject=${subject}&body=${body}`;
+    
+    // Opcionalmente, si estaba en 'paid', lo pasamos a 'confirmed' localmente 
+    // pues asumimos que el operario ya lo ha gestionado.
+    if (r.status === 'paid') {
+      updateDoc(doc(db, 'reservations', r.id), { status: 'confirmed', updatedAt: new Date().toISOString() })
+        .catch(err => console.error("Error confirmando tras email manual:", err));
+    }
   };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
@@ -603,13 +636,22 @@ export default function AdminApp() {
                           </button>
                         )}
                         {(r.status === 'paid' || r.status === 'confirmed') && (
-                          <button 
-                            onClick={() => handleSendManualEmail(r.localizador)}
-                            className={`p-1 transition-colors ${r.status === 'paid' ? 'text-blue-400 hover:text-blue-200 animate-bounce' : 'text-blue-600/50 hover:text-blue-400'}`}
-                            title="Enviar Email de Comprobante"
-                          >
-                            <Mail className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button 
+                              onClick={() => handleSendManualEmail(r.localizador)}
+                              className={`p-1 transition-colors ${r.status === 'paid' ? 'text-blue-400 hover:text-blue-200 animate-pulse' : 'text-blue-600/50 hover:text-blue-400'}`}
+                              title="Abrir Email (Mailto)"
+                            >
+                              <Mail className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => setConfirmEmailModal({ show: true, orderId: r.localizador })}
+                              className="p-1 text-[#E5E2D9]/20 hover:text-[#C4A484] transition-colors"
+                              title="Enviar vía Sistema (Resend)"
+                            >
+                              <RefreshCw className="w-3 h-3" />
+                            </button>
+                          </div>
                         )}
                         {(r.status === 'confirmed' || r.status === 'paid' || r.status === 'pending') && (
                           <button 
