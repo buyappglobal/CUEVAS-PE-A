@@ -57,9 +57,9 @@ export default function AdminApp() {
   const Tooltip = ({ text }: { text: string }) => (
     <div className="group relative inline-block ml-1">
       <Info className="w-3 h-3 text-[#C4A484]/50 hover:text-[#C4A484] cursor-help" />
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-64 p-3 bg-[#1A1A1A] border border-[#C4A484]/30 text-[10px] leading-relaxed text-[#E5E2D9] rounded shadow-2xl z-50 pointer-events-none">
+      <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block w-64 p-3 bg-[#1A1A1A] border border-[#C4A484]/30 text-[10px] leading-relaxed text-[#E5E2D9] rounded shadow-2xl z-50 pointer-events-none">
         {text}
-        <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-[#1A1A1A]"></div>
+        <div className="absolute top-full right-1 border-8 border-transparent border-t-[#1A1A1A]"></div>
       </div>
     </div>
   );
