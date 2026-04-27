@@ -18,6 +18,21 @@ export const Gallery: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
 
+  const seoCaptions = [
+    "Cuevas de la Peña de Arias Montano",
+    "Patrimonio Histórico de Alájar",
+    "Paisajes de la Sierra de Huelva",
+    "Formaciones geológicas en Alájar",
+    "Entrada a las Cuevas de Alájar",
+    "Entorno natural Peña Arias Montano",
+    "Turismo rural en Huelva",
+    "Vistas desde la Peña de Alájar",
+    "Misterios de las Cuevas de Huelva",
+    "Naturaleza viva en la Sierra",
+    "Monumento natural Arias Montano",
+    "Rutas de senderismo por Alájar"
+  ];
+
   useEffect(() => {
     console.log("🔍 Gallery: Iniciando carga de imágenes", { hasKey: !!DRIVE_API_KEY, folder: FOLDER_ID });
     
@@ -135,14 +150,15 @@ export const Gallery: React.FC = () => {
             >
               <img 
                 src={img.url} 
-                alt={img.caption || 'Imagen de la cueva'} 
+                alt={seoCaptions[index % seoCaptions.length]} 
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-80 group-hover:opacity-100"
                 referrerPolicy="no-referrer"
                 loading="lazy"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-6">
-                <p className="text-[10px] uppercase tracking-widest text-[#C4A484] mb-1">Peña de Arias Montano</p>
-                <p className="text-white text-sm font-serif line-clamp-2">{img.caption}</p>
+                <p className="text-[12px] uppercase tracking-widest text-[#C4A484] mb-1">
+                  {seoCaptions[index % seoCaptions.length]}
+                </p>
                 <Maximize2 className="absolute top-4 right-4 w-4 h-4 text-white/50" />
               </div>
             </motion.div>
@@ -200,13 +216,15 @@ export const Gallery: React.FC = () => {
             >
               <img 
                 src={images[selectedImageIndex].url} 
-                alt="Lightbox View" 
+                alt={seoCaptions[selectedImageIndex % seoCaptions.length]} 
                 className="max-w-full max-h-[85vh] object-contain shadow-2xl"
                 referrerPolicy="no-referrer"
               />
-              <div className="mt-8 text-center max-w-2xl">
-                <p className="text-[#C4A484] text-[10px] uppercase tracking-[0.4em] mb-2">Imagen {selectedImageIndex + 1} de {images.length}</p>
-                <h3 className="text-2xl font-serif text-white">{images[selectedImageIndex].caption}</h3>
+              <div className="mt-8 text-center max-w-2xl px-4">
+                <p className="text-[#C4A484] text-[10px] uppercase tracking-[0.4em] mb-2 font-bold italic">
+                  {seoCaptions[selectedImageIndex % seoCaptions.length]}
+                </p>
+                <p className="text-white/40 text-[10px] uppercase tracking-widest">Alájar, Huelva</p>
               </div>
             </motion.div>
           </motion.div>
