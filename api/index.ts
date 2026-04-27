@@ -19,17 +19,33 @@ try {
   console.error("❌ Could not read firebase-applet-config.json", e);
 }
 
+const getFirestoreConfig = () => {
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const projectId = process.env.FIREBASE_PROJECT_ID || firebaseConfig.projectId;
+
+  if (privateKey && clientEmail) {
+    // Robust key formatting: remove quotes, fix newlines
+    const formattedKey = privateKey
+      .replace(/^['"]|['"]$/g, '') // Remove wrapping quotes
+      .replace(/\\n/g, '\n');      // Fix escaped newlines
+
+    return {
+      credential: admin.credential.cert({
+        projectId,
+        clientEmail,
+        privateKey: formattedKey,
+      }),
+      projectId
+    };
+  }
+  
+  // Fallback to simpler init if no service account provided
+  return { projectId };
+};
+
 const firebaseApp = admin.apps.length === 0 
-  ? admin.initializeApp({ 
-      credential: process.env.FIREBASE_PRIVATE_KEY 
-        ? admin.credential.cert({
-            projectId: process.env.FIREBASE_PROJECT_ID || firebaseConfig.projectId,
-            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-          })
-        : admin.credential.applicationDefault(),
-      projectId: firebaseConfig.projectId 
-    })
+  ? admin.initializeApp(getFirestoreConfig())
   : admin.app();
 
 try {
