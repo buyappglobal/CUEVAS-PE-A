@@ -81,10 +81,11 @@ export default function AdminApp() {
       // No, mostramos todo lo que coincida con el estado.
       const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
       
-      // 3. Filtro por Fecha de Visita (DÍA ON/OFF)
-      const rDate = r.date ? r.date.trim() : '';
+      // 3. Filtro por Fecha de Creación (DÍA ON/OFF)
+      // Normalizamos ambos strings para comparar solo la parte YYYY-MM-DD
+      const rDateFull = r.createdAt ? new Date(r.createdAt).toISOString().split('T')[0] : '';
       const fDate = dateFilter ? dateFilter.trim() : '';
-      const matchesVisitDate = !filterByVisitDate || rDate === fDate;
+      const matchesVisitDate = !filterByVisitDate || rDateFull === fDate;
       
       return matchesSearch && matchesStatus && matchesVisitDate;
     })
@@ -686,9 +687,9 @@ Cuevas de Alájar`);
                               <Mail className="w-4 h-4" />
                             </button>
                             <button 
-                              onClick={() => setConfirmEmailModal({ show: true, orderId: r.localizador })}
-                              className="p-1 text-[#E5E2D9]/20 hover:text-[#C4A484] transition-colors"
-                              title="Enviar vía Sistema (Resend)"
+                              onClick={() => alert("📤 Envío de email vía sistema en desarrollo (Resend). Por favor, use el botón de Mailto para enviar manualmente.")}
+                              className="p-1 text-[#E5E2D9]/20 hover:text-[#C4A484] transition-colors cursor-help"
+                              title="Enviar vía Sistema (En desarrollo)"
                             >
                               <RefreshCw className="w-3 h-3" />
                             </button>
