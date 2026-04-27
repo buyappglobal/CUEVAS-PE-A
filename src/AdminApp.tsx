@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { db, auth, loginWithGoogle, loginWithEmail, logout } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, query, getDocs, doc, getDoc, setDoc, updateDoc, increment, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, getDocs, doc, getDoc, setDoc, updateDoc, increment, where, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { Calendar, Clock, Ticket, Users, FileText, CheckCircle, Plus, Trash2, LogOut, Mountain, X, RefreshCw, Info, Ban, AlertCircle, Copy, Mail } from 'lucide-react';
+import { motion } from 'motion/react';
 
 export default function AdminApp() {
   const [user, setUser] = useState<User | null>(null);
@@ -21,11 +22,36 @@ export default function AdminApp() {
     return new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [filterByVisitDate, setFilterByVisitDate] = useState(true);
+  const [filterByVisitDate, setFilterByVisitDate] = useState(false);
+  const [isCleaning, setIsCleaning] = useState(false);
   
   // Login form states
   const [emailInput, setEmailInput] = useState('admin');
   const [passwordInput, setPasswordInput] = useState('');
+
+  const handleCleanup = async () => {
+    if (!window.confirm("¿ESTÁS SEGURO? Esto borrará TODAS las reservas y reseteará los aforos. Esta acción no se puede deshacer.")) return;
+    
+    setIsCleaning(true);
+    try {
+      // 1. Borrar Reservas
+      const resSnap = await getDocs(collection(db, 'reservations'));
+      const deletePromises = resSnap.docs.map(d => deleteDoc(doc(db, 'reservations', d.id)));
+      
+      // 2. Resetear Slots (Aforos)
+      const slotsSnap = await getDocs(collection(db, 'slots'));
+      const resetPromises = slotsSnap.docs.map(d => updateDoc(doc(db, 'slots', d.id), { bookedCount: 0 }));
+      
+      await Promise.all([...deletePromises, ...resetPromises]);
+      alert("Base de datos limpia.");
+      fetchData();
+    } catch (error) {
+      console.error("Error cleaning DB:", error);
+      alert("Error al limpiar registros.");
+    } finally {
+      setIsCleaning(false);
+    }
+  };
 
   // Tooltip helper component
   const Tooltip = ({ text }: { text: string }) => (
@@ -40,7 +66,6 @@ export default function AdminApp() {
 
   const [cancelModal, setCancelModal] = useState<{show: boolean, resId: string | null}>({ show: false, resId: null });
   const [confirmModal, setConfirmModal] = useState<{show: boolean, resId: string | null}>({ show: false, resId: null });
-  const [showNewModal, setShowNewModal] = useState(false);
 
   // Filtered and Sorted Reservations
   const filteredReservations = allReservations
@@ -52,11 +77,11 @@ export default function AdminApp() {
         r.customerEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.localizador?.toLowerCase().includes(searchTerm.toLowerCase());
       
-      // 2. Filtro por Estado
+      // 2. Filtro por Estado (Ocultamos canceladas por defecto si el filtro es 'all'?) 
+      // No, mostramos todo lo que coincida con el estado.
       const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
       
-      // 3. Filtro por Fecha de Visita (Opcional)
-      // Normalizamos ambos strings por si acaso vienen con formatos ligeramente distintos
+      // 3. Filtro por Fecha de Visita (DÍA ON/OFF)
       const rDate = r.date ? r.date.trim() : '';
       const fDate = dateFilter ? dateFilter.trim() : '';
       const matchesVisitDate = !filterByVisitDate || rDate === fDate;
@@ -64,11 +89,21 @@ export default function AdminApp() {
       return matchesSearch && matchesStatus && matchesVisitDate;
     })
     .sort((a, b) => {
-      // Ordenar por fecha de creación (createdAt) descendente: las más nuevas primero
       const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return dateB - dateA;
     });
+
+  // Capacidades actuales basadas EN LA FECHA DE BÚSQUEDA (dateFilter)
+  const slots = ['11:00', '12:30', '16:00'];
+  const capacities = slots.reduce((acc, slot) => {
+    const slotRes = allReservations.filter(r => 
+      r.date === dateFilter && r.time === slot && (r.status === 'confirmed' || r.status === 'paid')
+    );
+    const booked = slotRes.reduce((sum, r) => sum + (Number(r.totalTickets) || 0), 0);
+    acc[slot] = { booked, remaining: Math.max(0, 30 - booked) };
+    return acc;
+  }, {} as Record<string, { booked: number, remaining: number }>);
 
   const handleConfirmReservation = async (resId: string) => {
     try {
@@ -122,12 +157,70 @@ export default function AdminApp() {
       alert("Error al anular: " + (e as Error).message);
     }
   };
-  const [newRes, setNewRes] = useState({
+  // Modal states
+  const [isManualSaleOpen, setIsManualSaleOpen] = useState(false);
+  const [manualSaleForm, setManualSaleForm] = useState({
+    date: new Date().toISOString().split('T')[0],
     time: '11:00',
     customerName: '',
     customerEmail: '',
     tickets: { adult: 0, reduced: 0, childFree: 0 }
   });
+
+  const handleManualSale = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const total = manualSaleForm.tickets.adult + manualSaleForm.tickets.reduced + manualSaleForm.tickets.childFree;
+    if (total <= 0) return alert("Selecciona al menos una entrada");
+    
+    setIsRefreshing(true);
+    const orderId = `MAN-${Date.now().toString().slice(-6)}`;
+    
+    try {
+      // Registrar reserva
+      await setDoc(doc(db, 'reservations', orderId), {
+        localizador: orderId,
+        date: manualSaleForm.date,
+        time: manualSaleForm.time,
+        customerName: manualSaleForm.customerName,
+        customerEmail: manualSaleForm.customerEmail || 'mostrador@cuevasdealajar.com',
+        tickets: manualSaleForm.tickets,
+        totalPrice: (manualSaleForm.tickets.adult * 10) + (manualSaleForm.tickets.reduced * 8),
+        totalTickets: total,
+        status: 'confirmed',
+        origin: 'offline',
+        source: 'manual',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+
+      // Actualizar slot
+      const slotId = `${manualSaleForm.date}_${manualSaleForm.time}`;
+      const slotRef = doc(db, 'slots', slotId);
+      const slotSnap = await getDoc(slotRef);
+      if (slotSnap.exists()) {
+        await updateDoc(slotRef, { bookedCount: increment(total) });
+      } else {
+        await setDoc(slotRef, { date: manualSaleForm.date, time: manualSaleForm.time, bookedCount: total });
+      }
+
+      setIsManualSaleOpen(false);
+      // Reset form
+      setManualSaleForm({
+        date: new Date().toISOString().split('T')[0],
+        time: '11:00',
+        customerName: '',
+        customerEmail: '',
+        tickets: { adult: 0, reduced: 0, childFree: 0 }
+      });
+      fetchData();
+      alert("Venta manual completada con éxito.");
+    } catch (error) {
+      console.error(error);
+      alert("Error en venta manual");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -208,57 +301,6 @@ export default function AdminApp() {
   const dayReservations = allReservations.filter(r => 
     r.date === dateFilter && r.status !== 'cancelled' && r.status !== 'failed'
   );
-
-  const handleCreateManual = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const total = newRes.tickets.adult + newRes.tickets.reduced + newRes.tickets.childFree;
-    if (total === 0) return alert("Selecciona tickets");
-
-    // Check capacity locally first
-    const currentBooked = dayReservations
-      .filter(r => r.time === newRes.time)
-      .reduce((sum, r) => sum + (r.totalTickets || 0), 0);
-    
-    if (currentBooked + total > 30) {
-      return alert(`No hay suficiente espacio. Quedan ${30 - currentBooked} plazas libres.`);
-    }
-
-    const payload = {
-      date: dateFilter,
-      time: newRes.time,
-      customerName: newRes.customerName,
-      customerEmail: newRes.customerEmail || 'manual@taquilla.local',
-      tickets: newRes.tickets,
-      totalTickets: total,
-      amount: 0, 
-      source: 'manual',
-      status: 'confirmed',
-      localizador: 'MAN' + String(Math.floor(Date.now() / 1000)).substring(4, 12),
-      createdAt: Date.now(),
-      ownerId: isBypass ? 'bypass-admin' : user?.uid
-    };
-
-    try {
-      const resRef = doc(collection(db, 'reservations'));
-      await setDoc(resRef, payload);
-      
-      // Update slots aggregate
-      const slotId = `${dateFilter}_${newRes.time}`;
-      const slotRef = doc(db, 'slots', slotId);
-      const slotSnap = await getDoc(slotRef);
-      if (slotSnap.exists()) {
-        await updateDoc(slotRef, { bookedCount: increment(total) });
-      } else {
-        await setDoc(slotRef, { date: dateFilter, time: newRes.time, bookedCount: total });
-      }
-
-      setShowNewModal(false);
-      fetchData();
-      alert("Reserva manual creada con éxito.");
-    } catch (err: any) {
-      alert("Error: " + err.message);
-    }
-  };
 
   const [confirmEmailModal, setConfirmEmailModal] = useState<{ show: boolean, orderId: string }>({ show: false, orderId: '' });
 
@@ -385,14 +427,6 @@ Cuevas de Alájar`);
   }
 
   // Aggregate capacities from dayReservations for active dashboard
-  const slots = ['11:00', '12:30', '16:00'];
-  const capacities = slots.reduce((acc, slot) => {
-    const slotRes = dayReservations.filter(r => r.time === slot);
-    const booked = slotRes.reduce((sum, r) => sum + (Number(r.totalTickets) || 0), 0);
-    acc[slot] = { booked, remaining: Math.max(0, 30 - booked) };
-    return acc;
-  }, {} as Record<string, { booked: number, remaining: number }>);
-
   return (
     <div className="min-h-screen bg-[#0D0D0B] text-[#E5E2D9] font-sans">
       <nav className="border-b border-[#E5E2D9]/10 bg-[#151515] px-6 py-4 flex justify-between items-center">
@@ -476,15 +510,22 @@ Cuevas de Alájar`);
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </button>
             <button 
-              onClick={() => setShowNewModal(true)}
+              onClick={() => setIsManualSaleOpen(true)}
               className="bg-[#C4A484] text-[#0D0D0B] px-4 py-2 font-bold uppercase tracking-wider text-xs flex items-center gap-2 hover:bg-[#b09376]"
             >
               <Plus className="w-4 h-4" /> Venta Manual
             </button>
+            <button 
+              onClick={handleCleanup}
+              disabled={isCleaning}
+              className="px-3 py-2 border border-red-900/50 text-red-500/50 text-[10px] uppercase font-bold tracking-widest hover:bg-red-900/20 transition-colors"
+            >
+              {isCleaning ? 'Limpiando...' : 'BORRAR TODO'}
+            </button>
           </div>
         </div>
 
-        {/* Dashboards Capacities */}
+        {/* Dashboards Capacities (Basados en dateFilter) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {slots.map(slot => (
             <div key={slot} className="bg-[#151515] border border-[#E5E2D9]/10 p-6 flex flex-col justify-between relative overflow-hidden">
@@ -768,79 +809,120 @@ Cuevas de Alájar`);
         </div>
       )}
 
-      {/* Manual Modal */}
-      {showNewModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
-          <div className="bg-[#151515] border border-[#C4A484]/30 w-full max-w-md relative flex flex-col max-h-[90vh]">
-            <div className="p-6 overflow-y-auto">
-              <button onClick={() => setShowNewModal(false)} className="absolute top-4 right-4 text-[#E5E2D9]/50 hover:text-white z-20">
-                <X className="w-5 h-5" />
+      {/* Venta Manual Modal con Fecha Interna */}
+      {isManualSaleOpen && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-[#151513] border border-[#C4A484]/30 w-full max-w-lg relative flex flex-col max-h-[90vh]"
+          >
+            <div className="p-8 overflow-y-auto w-full">
+              <button 
+                onClick={() => setIsManualSaleOpen(false)}
+                className="absolute top-4 right-4 text-[#E5E2D9]/40 hover:text-white z-20"
+              >
+                <X className="w-6 h-6" />
               </button>
-              <h3 className="font-serif text-2xl mb-6">Nueva Venta Taquilla</h3>
+              <h3 className="font-serif text-2xl text-[#C4A484] mb-6">Nueva Venta Taquilla</h3>
               
-              <form onSubmit={handleCreateManual} className="space-y-4">
-              <div>
-                <label className="block text-xs uppercase text-[#E5E2D9]/50 mb-1">Horario</label>
-                <select 
-                  value={newRes.time} 
-                  onChange={e => setNewRes({...newRes, time: e.target.value})}
-                  className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/20 p-3 text-[#E5E2D9] focus:outline-none focus:border-[#C4A484]"
-                >
-                  {slots.map(s => <option key={s} value={s}>{s} ({capacities[s].remaining} libres)</option>)}
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-xs uppercase text-[#E5E2D9]/50 mb-1">Nombre Comprador</label>
-                <input 
-                  type="text" required
-                  placeholder="Ej: Juan Pérez"
-                  value={newRes.customerName}
-                  onChange={e => setNewRes({...newRes, customerName: e.target.value})}
-                  className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/20 p-3 text-[#E5E2D9] focus:outline-none focus:border-[#C4A484]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs uppercase text-[#E5E2D9]/50 mb-1">Email (Opcional)</label>
-                <input 
-                  type="email"
-                  placeholder="ejemplo@email.com"
-                  value={newRes.customerEmail === 'manual@taquilla.local' ? '' : newRes.customerEmail}
-                  onChange={e => setNewRes({...newRes, customerEmail: e.target.value || 'manual@taquilla.local'})}
-                  className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/20 p-3 text-[#E5E2D9] focus:outline-none focus:border-[#C4A484]"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-4 pt-4 border-t border-[#E5E2D9]/10">
-                {['adult', 'reduced', 'childFree'].map(type => (
-                  <div key={type}>
-                    <label className="block text-[10px] uppercase text-[#E5E2D9]/50 mb-1">
-                      {type === 'adult' ? 'Adulto' : type === 'reduced' ? 'Reducida' : 'Infantil'}
-                    </label>
+              <form onSubmit={handleManualSale} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-[#E5E2D9]/40 mb-2 font-bold">FECHA VISITA</label>
                     <input 
-                      type="number" min="0" 
-                      value={newRes.tickets[type as keyof typeof newRes.tickets]}
-                      onChange={e => setNewRes({
-                        ...newRes, 
-                        tickets: { ...newRes.tickets, [type]: parseInt(e.target.value) || 0 }
-                      })}
-                      className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/20 p-2 text-center text-[#E5E2D9]"
+                      type="date"
+                      required
+                      value={manualSaleForm.date}
+                      onChange={e => setManualSaleForm({...manualSaleForm, date: e.target.value})}
+                      className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/10 p-3 text-sm text-[#E5E2D9] focus:outline-none focus:border-[#C4A484]/50 [color-scheme:dark]"
                     />
                   </div>
-                ))}
-              </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-[#E5E2D9]/40 mb-2 font-bold">HORARIO</label>
+                    <select 
+                      value={manualSaleForm.time}
+                      onChange={e => setManualSaleForm({...manualSaleForm, time: e.target.value})}
+                      className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/10 p-3 text-sm text-[#E5E2D9] focus:outline-none focus:border-[#C4A484]/50"
+                    >
+                      <option value="11:00">11:00</option>
+                      <option value="12:30">12:30</option>
+                      <option value="16:00">16:00</option>
+                    </select>
+                  </div>
+                </div>
 
-              <button 
-                type="submit" 
-                className="w-full bg-[#C4A484] text-[#0D0D0B] font-bold uppercase tracking-widest py-3 mt-6 hover:bg-[#b09376]"
-              >
-                Registrar Venta
-              </button>
-            </form>
-          </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-[#E5E2D9]/40 mb-2 font-bold">NOMBRE COMPRADOR</label>
+                  <input 
+                    type="text"
+                    required
+                    placeholder="Ej: Juan Pérez"
+                    value={manualSaleForm.customerName}
+                    onChange={e => setManualSaleForm({...manualSaleForm, customerName: e.target.value})}
+                    className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/10 p-3 text-sm text-[#E5E2D9] focus:outline-none focus:border-[#C4A484]/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-[#E5E2D9]/40 mb-2 font-bold">EMAIL (OPCIONAL)</label>
+                  <input 
+                    type="email"
+                    placeholder="ejemplo@email.com"
+                    value={manualSaleForm.customerEmail}
+                    onChange={e => setManualSaleForm({...manualSaleForm, customerEmail: e.target.value})}
+                    className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/10 p-3 text-sm text-[#E5E2D9] focus:outline-none focus:border-[#C4A484]/50"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-[#E5E2D9]/40 mb-2 font-bold">ADULTO</label>
+                    <input 
+                      type="number" 
+                      min="0"
+                      value={manualSaleForm.tickets.adult}
+                      onChange={e => setManualSaleForm({...manualSaleForm, tickets: {...manualSaleForm.tickets, adult: parseInt(e.target.value) || 0}})}
+                      className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/10 p-3 text-sm text-[#E5E2D9] text-center focus:outline-none focus:border-[#C4A484]/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-[#E5E2D9]/40 mb-2 font-bold">REDUCIDA</label>
+                    <input 
+                      type="number" 
+                      min="0"
+                      value={manualSaleForm.tickets.reduced}
+                      onChange={e => setManualSaleForm({...manualSaleForm, tickets: {...manualSaleForm.tickets, reduced: parseInt(e.target.value) || 0}})}
+                      className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/10 p-3 text-sm text-[#E5E2D9] text-center focus:outline-none focus:border-[#C4A484]/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-[#E5E2D9]/40 mb-2 font-bold">INFANTIL</label>
+                    <input 
+                      type="number" 
+                      min="0"
+                      value={manualSaleForm.tickets.childFree}
+                      onChange={e => setManualSaleForm({...manualSaleForm, tickets: {...manualSaleForm.tickets, childFree: parseInt(e.target.value) || 0}})}
+                      className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/10 p-3 text-sm text-[#E5E2D9] text-center focus:outline-none focus:border-[#C4A484]/50"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t border-[#E5E2D9]/10 flex items-center justify-between">
+                  <div className="text-[#E5E2D9]/40 uppercase text-[10px] tracking-widest">
+                    Total: <span className="text-[#C4A484] ml-2">{manualSaleForm.tickets.adult + manualSaleForm.tickets.reduced + manualSaleForm.tickets.childFree} Plazas</span>
+                  </div>
+                  <button 
+                    type="submit"
+                    className="px-8 py-3 bg-[#C4A484] text-[#0D0D0B] text-xs font-bold uppercase tracking-widest hover:bg-[#E5E2D9] transition-colors"
+                  >
+                    Confirmar Venta
+                  </button>
+                </div>
+              </form>
+            </div>
+          </motion.div>
         </div>
-      </div>
       )}
     </div>
   );
