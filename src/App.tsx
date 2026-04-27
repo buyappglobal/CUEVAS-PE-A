@@ -28,6 +28,9 @@ const FadeIn = ({ children, delay = 0, ...props }: { children: React.ReactNode, 
 export default function App() {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
+  const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
+  const [redsysParams, setRedsysParams] = useState<any>(null);
+  const [currentOrderId, setCurrentOrderId] = useState('');
   const [isNormasModalOpen, setIsNormasModalOpen] = useState(false);
   const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
@@ -189,7 +192,7 @@ export default function App() {
     });
   };
 
-  const processPayment = async (e: React.FormEvent) => {
+  const handleContinueToSummary = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!date || !time) {
       alert("Por favor, seleccione fecha y horario.");
@@ -205,63 +208,76 @@ export default function App() {
     setIsLoadingPayment(true);
     
     try {
-      // Formato: AAAAmmdd + 4 dígitos aleatorios
       const now = new Date();
       const YYYY = now.getFullYear().toString();
       const MM = (now.getMonth() + 1).toString().padStart(2, '0');
       const DD = now.getDate().toString().padStart(2, '0');
       const randomPart = Math.floor(1000 + Math.random() * 9000).toString();
       const orderId = `${YYYY}${MM}${DD}${randomPart}`.substring(0, 12);
+      setCurrentOrderId(orderId);
 
-      // El servidor (api/index.ts) se encargará de crear la reserva pendiente
-      // y de incrementar el aforo para evitar duplicidades y fallos de permisos.
-      
       const response = await fetch('/api/create-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId, amount: totalPrice, tickets, date, time, customer: { name: customerName, email: customerEmail } })
+        body: JSON.stringify({ 
+          orderId, 
+          amount: totalPrice, 
+          tickets, 
+          date, 
+          time, 
+          customer: { name: customerName, email: customerEmail } 
+        })
       });
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Error del servidor (${response.status}):`, errorText);
-        throw new Error(`Error del servidor al procesar el pago (${response.status})`);
+        throw new Error("Error registrando la reserva en el sistema");
       }
 
       const session = await response.json();
+      setRedsysParams(session);
       
-      if (!session.paramsBase64) {
-        throw new Error("No se pudo iniciar el pago");
-      }
+      // Cerramos el modal de reserva y abrimos el de resumen
+      setIsBookingModalOpen(false);
+      setIsSummaryModalOpen(true);
+      setIsLoadingPayment(false);
+    } catch (error) {
+      console.error(error);
+      alert("Error al registrar los datos. Por favor, inténtelo de nuevo.");
+      setIsLoadingPayment(false);
+    }
+  };
 
+  const executePayment = () => {
+    if (!redsysParams) return;
+
+    try {
       const form = document.createElement('form');
       form.method = 'POST';
-      form.action = session.url;
+      form.action = redsysParams.url;
 
       const versionInput = document.createElement('input');
       versionInput.type = 'hidden';
       versionInput.name = 'Ds_SignatureVersion';
-      versionInput.value = session.version;
+      versionInput.value = redsysParams.version;
       form.appendChild(versionInput);
 
       const paramsInput = document.createElement('input');
       paramsInput.type = 'hidden';
       paramsInput.name = 'Ds_MerchantParameters';
-      paramsInput.value = session.paramsBase64;
+      paramsInput.value = redsysParams.paramsBase64;
       form.appendChild(paramsInput);
 
       const signatureInput = document.createElement('input');
       signatureInput.type = 'hidden';
       signatureInput.name = 'Ds_Signature';
-      signatureInput.value = session.signature;
+      signatureInput.value = redsysParams.signature;
       form.appendChild(signatureInput);
 
       document.body.appendChild(form);
       form.submit();
     } catch (error) {
       console.error(error);
-      alert("Error temporal comunicando con el servidor de pago.");
-      setIsLoadingPayment(false);
+      alert("Error lanzando la pasarela de pago.");
     }
   };
 
@@ -633,7 +649,7 @@ export default function App() {
                 <span className="text-[#C4A484] text-[10px] uppercase tracking-[0.2em] mb-2 block">Reserva de Entradas</span>
                 <h2 className="font-serif text-3xl mb-6 pr-8 font-light">Confirma tu visita</h2>
                 
-                <form className="space-y-6" onSubmit={processPayment}>
+                <form className="space-y-6" onSubmit={handleContinueToSummary}>
                   <div>
                     <label className="block text-[10px] uppercase tracking-[0.1em] text-[#E5E2D9]/50 mb-2">Fecha y Horario de Visita</label>
                     <div className="grid grid-cols-1 gap-4 mb-4">
@@ -780,7 +796,7 @@ export default function App() {
                       disabled={isLoadingPayment || (totalPrice === 0 && tickets.childFree === 0)}
                       className="w-full bg-[#C4A484] disabled:opacity-50 disabled:cursor-not-allowed text-[#0D0D0B] rounded-none py-4 text-[12px] font-bold tracking-[0.1em] uppercase hover:bg-[#b09376] transition-colors active:scale-[0.98] flex items-center justify-center"
                     >
-                      {isLoadingPayment ? <span className="animate-pulse">Cargando pasarela...</span> : 'Confirmar Reserva'}
+                      {isLoadingPayment ? <span className="animate-pulse">Registrando datos...</span> : 'Continuar al Resumen'}
                     </button>
                     <p className="text-center text-[10px] uppercase tracking-[0.1em] text-[#E5E2D9]/50 mt-4 flex items-center justify-center gap-1">
                       <Info className="w-3 h-3" /> Plataforma de pago 100% segura.
@@ -788,6 +804,77 @@ export default function App() {
                   </div>
                 </form>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Summary Modal */}
+      <AnimatePresence>
+        {isSummaryModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] bg-[#0D0D0B]/90 backdrop-blur-md flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-[#0D0D0B] border border-[#C4A484]/30 p-8 w-full max-w-md shadow-2xl relative"
+            >
+              <button 
+                onClick={() => setIsSummaryModalOpen(false)}
+                className="absolute right-6 top-6 text-[#E5E2D9]/50 hover:text-[#E5E2D9]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="text-center mb-8">
+                <CheckCircle className="w-12 h-12 text-[#C4A484] mx-auto mb-4" />
+                <h2 className="font-serif text-3xl text-[#E5E2D9]">Resumen de Pedido</h2>
+                <p className="text-[#C4A484] text-[10px] uppercase tracking-[0.2em] mt-2">Localizador: {currentOrderId}</p>
+              </div>
+
+              <div className="space-y-4 border-t border-b border-[#E5E2D9]/10 py-6 mb-6">
+                <div className="flex justify-between text-sm">
+                  <span className="text-[#E5E2D9]/50">Visitante</span>
+                  <span className="text-[#E5E2D9] font-medium">{customerName}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[#E5E2D9]/50">Fecha</span>
+                  <span className="text-[#E5E2D9] font-medium">{date.split('-').reverse().join('/')}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[#E5E2D9]/50">Hora</span>
+                  <span className="text-[#E5E2D9] font-medium">{time}h</span>
+                </div>
+                <div className="flex justify-between text-sm pt-2 border-t border-[#E5E2D9]/5">
+                  <span className="text-[#E5E2D9]/50">Entradas</span>
+                  <div className="text-right">
+                    {tickets.adult > 0 && <div className="text-[#E5E2D9]">{tickets.adult}x Adulto</div>}
+                    {tickets.reduced > 0 && <div className="text-[#E5E2D9]">{tickets.reduced}x Reducida</div>}
+                    {tickets.childFree > 0 && <div className="text-[#E5E2D9]">{tickets.childFree}x Infantil</div>}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between mb-8">
+                <span className="text-sm uppercase tracking-widest text-[#E5E2D9]/70">Total a Pagar</span>
+                <span className="text-3xl font-serif text-[#C4A484]">{totalPrice.toFixed(2)}€</span>
+              </div>
+
+              <button 
+                onClick={executePayment}
+                className="w-full bg-[#C4A484] text-[#0D0D0B] py-4 rounded-none text-[12px] font-bold uppercase tracking-[0.2em] hover:bg-[#b09376] transition-all flex items-center justify-center gap-2"
+              >
+                Confirmar y Pagar <ArrowRight className="w-4 h-4" />
+              </button>
+              
+              <p className="text-[9px] text-[#E5E2D9]/40 mt-6 text-justify leading-relaxed">
+                Al hacer clic en "Confirmar y Pagar", será redirigido a la pasarela segura de Redsys para completar la transacción. Sus datos ya han sido registrados de forma segura en nuestro sistema.
+              </p>
             </motion.div>
           </motion.div>
         )}

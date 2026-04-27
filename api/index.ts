@@ -220,6 +220,50 @@ app.post(['/api/redsys-webhook', '/redsys-webhook'], async (req, res) => {
   }
 });
 
+app.post(['/api/send-manual-email', '/send-manual-email'], async (req, res) => {
+  const { orderId } = req.body;
+  if (!orderId) return res.status(400).json({ error: 'Falta orderId' });
+
+  try {
+    const resRef = db.collection('reservations').doc(orderId);
+    const resSnap = await resRef.get();
+    
+    if (!resSnap.exists) return res.status(404).json({ error: 'Reserva no encontrada' });
+    const resData = resSnap.data();
+
+    if (resData && resData.customerEmail && process.env.RESEND_API_KEY) {
+      const isConfirmed = resData.status === 'confirmed' || resData.status === 'paid';
+      
+      await resend.emails.send({
+        from: 'Cuevas de la Peña <info@cuevasdealajar.com>',
+        to: resData.customerEmail,
+        subject: isConfirmed ? `🎟️ Comprobante de Reserva #${orderId}` : `⏳ Resumen de solicitud #${orderId}`,
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
+            <h1 style="color: #C4A484;">${isConfirmed ? '¡Reserva Confirmada!' : 'Resumen de tu solicitud'}</h1>
+            <p>Hola <strong>${resData.customerName}</strong>,</p>
+            <p>Este es el detalle de tu reserva para visitar las Cuevas de la Peña de Arias Montano:</p>
+            <ul style="list-style: none; padding: 0;">
+              <li><strong>Fecha:</strong> ${resData.date}</li>
+              <li><strong>Hora:</strong> ${resData.time}h</li>
+              <li><strong>Localizador:</strong> #${orderId}</li>
+              <li><strong>Estado:</strong> ${resData.status.toUpperCase()}</li>
+            </ul>
+            <p style="margin-top: 20px; font-size: 12px; color: #666;">
+              Si tienes cualquier duda, por favor contacta con nosotros respondiendo a este email.
+            </p>
+          </div>
+        `
+      });
+      return res.json({ success: true });
+    }
+    res.status(400).json({ error: 'No se pudo enviar el correo' });
+  } catch (err: any) {
+    console.error("❌ Manual Email Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- Vite / Static ---
 async function start() {
   if (process.env.NODE_ENV !== 'production') {

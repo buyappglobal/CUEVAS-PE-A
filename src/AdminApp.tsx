@@ -253,6 +253,20 @@ export default function AdminApp() {
     }
   };
 
+  const handleSendManualEmail = async (orderId: string) => {
+    try {
+      const resp = await fetch('/api/send-manual-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId })
+      });
+      if (resp.ok) alert("📧 Email enviado correctamente al cliente.");
+      else alert("❌ Error enviando email.");
+    } catch (e) {
+      alert("Error: " + (e as Error).message);
+    }
+  };
+
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -571,6 +585,13 @@ export default function AdminApp() {
                             <CheckCircle className="w-4 h-4" />
                           </button>
                         )}
+                        <button 
+                          onClick={() => handleSendManualEmail(r.localizador)}
+                          className="p-1 hover:text-blue-400 text-blue-600/50 transition-colors"
+                          title="Enviar Email de Comprobante"
+                        >
+                          <Mail className="w-4 h-4" />
+                        </button>
                         {(r.status === 'confirmed' || r.status === 'paid' || r.status === 'pending') && (
                           <button 
                             onClick={() => setCancelModal({ show: true, resId: r.id })}
