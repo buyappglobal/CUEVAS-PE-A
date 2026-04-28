@@ -11,7 +11,7 @@ import { Gallery } from './components/Gallery';
 import { 
   MapPin, Calendar, Ticket, ChevronRight, Mountain, 
   Leaf, History, Utensils, ArrowRight, Clock, Users, X, Info, Camera, Tent,
-  CheckCircle, AlertCircle, User, Mail, Phone, FileText, Download
+  CheckCircle, AlertCircle, User, Mail, Phone, FileText, Download, Share2
 } from 'lucide-react';
 
 const FadeIn = ({ children, delay = 0, ...props }: { children: React.ReactNode, delay?: number, key?: React.Key }) => (
@@ -283,6 +283,27 @@ export default function App() {
     }
   };
 
+  const handleShare = async () => {
+    const shareData = {
+      title: 'Cuevas de Alájar - Reserva tu Visita',
+      text: 'Descubre la magia de las Cuevas de Alájar en la Peña de Arias Montano. ¡Reserva tus entradas online!',
+      url: window.location.origin
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(shareData.url);
+        alert('Enlace copiado al portapapeles');
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name !== 'AbortError') {
+        console.error('Error sharing:', err);
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0D0D0B] font-sans text-[#E5E2D9] selection:bg-[#C4A484] selection:text-[#0D0D0B] overflow-x-hidden">
       {/* Notificaciones de Pago */}
@@ -329,14 +350,32 @@ export default function App() {
             />
             <span className="font-serif text-xl tracking-[0.05em] uppercase">Peña Arias Montano</span>
           </button>
-          <div className="hidden md:flex items-center gap-8 text-[11px] uppercase tracking-[0.15em] font-medium text-[#E5E2D9]/70">
-            <a href="#descubre" className="hover:text-[#E5E2D9] transition-colors">Las Cuevas</a>
-            <a href="#galeria" className="hover:text-[#E5E2D9] transition-colors">Galería</a>
-            <a href="#visitas" className="hover:text-[#E5E2D9] transition-colors">Visitas y Tarifas</a>
-            <a href="#alajar" className="hover:text-[#E5E2D9] transition-colors">Descubre Alájar</a>
-            <button onClick={() => openBooking()} className="text-[#C4A484] hover:opacity-100 opacity-80 font-bold transition-opacity">
-              Solicitar Reserva
-            </button>
+          
+          <div className="flex items-center gap-4 md:gap-8">
+            <div className="hidden md:flex items-center gap-8 text-[11px] uppercase tracking-[0.15em] font-medium text-[#E5E2D9]/70">
+              <a href="#descubre" className="hover:text-[#E5E2D9] transition-colors">Las Cuevas</a>
+              <a href="#galeria" className="hover:text-[#E5E2D9] transition-colors">Galería</a>
+              <a href="#visitas" className="hover:text-[#E5E2D9] transition-colors">Visitas y Tarifas</a>
+              <a href="#alajar" className="hover:text-[#E5E2D9] transition-colors">Descubre Alájar</a>
+            </div>
+            
+            <div className="flex items-center gap-4 md:gap-6 md:border-l md:border-[#E5E2D9]/10 md:pl-6">
+              <motion.button 
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={handleShare}
+                className="text-[#C4A484] hover:text-[#E5E2D9] transition-colors p-2"
+                title="Compartir web"
+              >
+                <Share2 className="w-5 h-5 md:w-4 md:h-4" />
+              </motion.button>
+              <button 
+                onClick={() => openBooking()} 
+                className="hidden sm:block text-[#C4A484] hover:opacity-100 opacity-80 font-bold transition-opacity text-[11px] uppercase tracking-[0.15em]"
+              >
+                Solicitar Reserva
+              </button>
+            </div>
           </div>
         </div>
       </nav>
