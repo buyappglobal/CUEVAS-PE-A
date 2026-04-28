@@ -54,26 +54,58 @@ export default function AdminApp() {
     </div>
   );
 
+  // Abandoned Cart Helper
+  const handleAbandonedCartMail = (r: any) => {
+    const subject = encodeURIComponent(`Finaliza tu reserva - Cuevas de la Peña de Arias Montano`);
+    const body = encodeURIComponent(
+      `Hola ${r.customerName},\n\n` +
+      `Hemos visto que tienes una reserva pendiente para visitar las Cuevas de la Peña de Arias Montano el día ${r.date} a las ${r.time}.\n\n` +
+      `Si has tenido algún problema con el pago o quieres que te ayudemos a finalizarla, no dudes en responder a este correo.\n\n` +
+      `¡Esperamos verte pronto por Alájar!\n\n` +
+      `Saludos,\n` +
+      `Equipo de Gestión - Cuevas de la Peña`
+    );
+    window.location.href = `mailto:${r.customerEmail}?subject=${subject}&body=${body}`;
+  };
+
   // Status Badge Helper
   const StatusBadge = ({ r }: { r: any }) => (
-    <span className={`px-2 py-1 text-[10px] uppercase tracking-wider transition-colors ${
-      r.status === 'confirmed' 
-        ? theme === 'dark' ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-50 text-emerald-700'
-      : r.status === 'paid'
-        ? theme === 'dark' 
-          ? 'bg-cyan-900/40 text-cyan-300 border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.2)]' 
-          : 'bg-cyan-50 text-cyan-700 border border-cyan-200 shadow-sm'
-        : r.status === 'pending'
+    <div className="flex items-center gap-1">
+      <span className={`px-2 py-1 text-[10px] uppercase tracking-wider transition-colors flex items-center gap-1.5 ${
+        r.status === 'confirmed' 
+          ? theme === 'dark' ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-50 text-emerald-700'
+        : r.status === 'paid'
           ? theme === 'dark' 
-            ? 'bg-amber-900/40 text-amber-300 shadow-[0_0_8px_rgba(217,119,6,0.3)] animate-pulse' 
-            : 'bg-amber-50 text-amber-700 border border-amber-200 animate-pulse'
-          : theme === 'dark' ? 'bg-red-900/40 text-red-300' : 'bg-red-50 text-red-700'
-    }`}>
-      {r.status === 'paid' ? '💰 Pagado' : 
-       r.status === 'confirmed' ? '✅ Confirmado' : 
-       r.status === 'pending' ? '⏳ Pendiente' : 
-       r.status === 'cancelled' ? '🚫 Anulada' : '❌ Fallido'}
-    </span>
+            ? 'bg-cyan-900/40 text-cyan-300 border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.2)]' 
+            : 'bg-cyan-50 text-cyan-700 border border-cyan-200 shadow-sm'
+          : r.status === 'pending'
+            ? theme === 'dark' 
+              ? 'bg-amber-900/40 text-amber-300 shadow-[0_0_8px_rgba(217,119,6,0.3)] animate-pulse' 
+              : 'bg-amber-50 text-amber-700 border border-amber-200 animate-pulse'
+            : theme === 'dark' ? 'bg-red-900/40 text-red-300' : 'bg-red-50 text-red-700'
+      }`}>
+        {r.status === 'paid' ? '💰 Pagado' : 
+         r.status === 'confirmed' ? '✅ Confirmado' : 
+         r.status === 'pending' ? '⏳ Pendiente' : 
+         r.status === 'cancelled' ? '🚫 Anulada' : '❌ Fallido'}
+      </span>
+      {r.status === 'pending' && (
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            handleAbandonedCartMail(r);
+          }}
+          className={`p-1 rounded-full transition-all border ${
+            theme === 'dark' 
+              ? 'bg-[#1A1A1A] border-[#C4A484]/40 text-[#C4A484] hover:bg-[#C4A484]/20' 
+              : 'bg-white border-amber-200 text-amber-600 hover:bg-amber-50'
+          }`}
+          title="Enviar Recordatorio (Carrito Abandonado)"
+        >
+          <Mail className="w-3 h-3" />
+        </button>
+      )}
+    </div>
   );
 
   // Action Buttons Helper
@@ -396,20 +428,24 @@ export default function AdminApp() {
     if (!r) return;
 
     const subject = encodeURIComponent(`Reserva Confirmada #${r.localizador} - Cuevas de Alájar`);
-    const body = encodeURIComponent(`Hola ${r.customerName},
-
-Confirmamos tu reserva para la visita a las Cuevas de la Peña de Arias Montano.
-
-DETALLES:
-- Localizador: #${r.localizador}
-- Fecha: ${r.date}
-- Hora: ${r.time}
-- Plazas: ${r.totalTickets}
-
-Recuerda acudir 10 minutos antes a la entrada de las Cuevas.
-
-Saludos,
-Cuevas de Alájar`);
+    const body = encodeURIComponent(
+      `Hola, ${r.customerName}:\n\n` +
+      `¡Muchas gracias por tu compra! Te escribimos para confirmar que tu reserva para visitar las Cuevas de Alájar se ha procesado correctamente. Estamos deseando darte la bienvenida y mostrarte la belleza de nuestro entorno.\n\n` +
+      `A continuación, te detallamos los datos de tu reserva:\n\n` +
+      `Nombre a cargo de la reserva: ${r.customerName}\n\n` +
+      `Número de pedido: ${r.localizador}\n\n` +
+      `Fecha y hora de la visita: ${r.date} a las ${r.time}\n\n` +
+      `📌 Información importante para tu visita:\n` +
+      `Entradas: No es necesario que imprimas este correo. Puedes mostrar este mismo email desde tu teléfono móvil en la taquilla al llegar.\n\n` +
+      `Puntualidad: Te recomendamos llegar al menos 15 minutos antes de la hora de tu visita para poder validar tu entrada sin prisas.\n\n` +
+      `Recomendaciones: Recuerda llevar calzado cómodo y ropa adecuada para la temperatura del interior de las cuevas.\n\n` +
+      `📍 ¿Cómo llegar?\n` +
+      `Puedes encontrar nuestra ubicación exacta y opciones de aparcamiento directamente en nuestra web: www.cuevasdealajar.com/ en la parte inferior de la web.\n\n` +
+      `Si tienes alguna pregunta, necesitas modificar tu reserva o requieres asistencia adicional, no dudes en responder a este correo o llamarnos al 671 844 875\n\n` +
+      `¡Te esperamos pronto para vivir una experiencia inolvidable!\n\n` +
+      `Un saludo cordial,\n\n` +
+      `El equipo de Cuevas de Alájar 🌐 cuevasdealajar.com`
+    );
 
     window.location.href = `mailto:${r.customerEmail}?subject=${subject}&body=${body}`;
     
