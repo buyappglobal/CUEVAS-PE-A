@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { db, auth, loginWithGoogle, loginWithEmail, logout } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, query, getDocs, doc, getDoc, setDoc, updateDoc, increment, where, onSnapshot, deleteDoc } from 'firebase/firestore';
-import { Calendar, Clock, Ticket, Users, FileText, CheckCircle, Plus, Trash2, LogOut, Mountain, X, RefreshCw, Info, Ban, AlertCircle, Copy, Mail, Sun, Moon } from 'lucide-react';
+import { Calendar, Clock, Ticket, Users, FileText, CheckCircle, Plus, LogOut, Mountain, X, RefreshCw, Info, Ban, AlertCircle, Copy, Mail, Sun, Moon } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function AdminApp() {
@@ -23,7 +23,7 @@ export default function AdminApp() {
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filterByVisitDate, setFilterByVisitDate] = useState(false);
-  const [isCleaning, setIsCleaning] = useState(false);
+  const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(50);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     const saved = localStorage.getItem('crm-theme');
     return (saved as 'dark' | 'light') || 'dark';
@@ -38,30 +38,6 @@ export default function AdminApp() {
   // Login form states
   const [emailInput, setEmailInput] = useState('admin');
   const [passwordInput, setPasswordInput] = useState('');
-
-  const handleCleanup = async () => {
-    if (!window.confirm("¿ESTÁS SEGURO? Esto borrará TODAS las reservas y reseteará los aforos. Esta acción no se puede deshacer.")) return;
-    
-    setIsCleaning(true);
-    try {
-      // 1. Borrar Reservas
-      const resSnap = await getDocs(collection(db, 'reservations'));
-      const deletePromises = resSnap.docs.map(d => deleteDoc(doc(db, 'reservations', d.id)));
-      
-      // 2. Resetear Slots (Aforos)
-      const slotsSnap = await getDocs(collection(db, 'slots'));
-      const resetPromises = slotsSnap.docs.map(d => updateDoc(doc(db, 'slots', d.id), { bookedCount: 0 }));
-      
-      await Promise.all([...deletePromises, ...resetPromises]);
-      alert("Base de datos limpia.");
-      fetchData();
-    } catch (error) {
-      console.error("Error cleaning DB:", error);
-      alert("Error al limpiar registros.");
-    } finally {
-      setIsCleaning(false);
-    }
-  };
 
   // Tooltip helper component
   const Tooltip = ({ text }: { text: string }) => (
@@ -172,6 +148,10 @@ export default function AdminApp() {
       const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return dateB - dateA;
     });
+
+  const displayedReservations = itemsPerPage === 'all' 
+    ? filteredReservations 
+    : filteredReservations.slice(0, itemsPerPage);
 
   // Capacidades actuales basadas EN LA FECHA DE BÚSQUEDA (dateFilter)
   const slots = ['11:00', '12:30', '16:00'];
@@ -716,13 +696,6 @@ Cuevas de Alájar`);
             >
               <Plus className="w-4 h-4" /> Venta Manual
             </button>
-            <button 
-              onClick={handleCleanup}
-              disabled={isCleaning}
-              className="px-4 py-2.5 border border-red-900/30 text-red-500/40 text-[10px] uppercase font-bold tracking-widest hover:bg-red-900/20 transition-colors"
-            >
-              {isCleaning ? 'Limpiando...' : 'Borrar Todo'}
-            </button>
           </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {slots.map(slot => (
@@ -755,10 +728,32 @@ Cuevas de Alájar`);
         </div>
 
         {/* Reservations List */}
-        <div className="flex justify-between items-end mb-4">
-          <h3 className={`text-sm uppercase tracking-widest font-bold ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>
-            Listado de Registros ({filteredReservations.length})
-          </h3>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
+          <div className="flex flex-col gap-2">
+            <h3 className={`text-sm uppercase tracking-widest font-bold ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>
+              Listado de Registros ({filteredReservations.length})
+            </h3>
+            <div className="flex items-center gap-2">
+              <span className={`text-[10px] uppercase tracking-widest font-bold ${theme === 'dark' ? 'text-[#E5E2D9]/30' : 'text-gray-400'}`}>Mostrar:</span>
+              <div className={`inline-flex rounded border transition-colors ${theme === 'dark' ? 'border-[#E5E2D9]/10' : 'border-gray-200'}`}>
+                {[10, 20, 50, 'all'].map((limit) => (
+                  <button
+                    key={limit}
+                    onClick={() => setItemsPerPage(limit as number | 'all')}
+                    className={`px-3 py-1 text-[10px] font-bold uppercase transition-all tracking-widest ${
+                      itemsPerPage === limit
+                        ? 'bg-[#C4A484] text-[#0D0D0B]'
+                        : theme === 'dark'
+                          ? 'text-[#E5E2D9]/40 hover:bg-white/5'
+                          : 'text-gray-400 hover:bg-gray-100'
+                    } ${limit !== 'all' ? 'border-r border-inherit' : ''}`}
+                  >
+                    {limit === 'all' ? 'Todos' : limit}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
           {statusFilter !== 'all' && (
             <span className="text-[10px] text-[#C4A484]/60 uppercase tracking-tighter">
               Filtro activo: {statusFilter}
@@ -810,7 +805,7 @@ Cuevas de Alájar`);
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E5E2D9]/5 dark:divide-white/5">
-              {filteredReservations.length === 0 ? (
+              {displayedReservations.length === 0 ? (
                 <tr>
                   <td colSpan={8} className={`p-12 text-center italic transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>
                     {searchTerm || statusFilter !== 'all' 
@@ -819,7 +814,7 @@ Cuevas de Alájar`);
                   </td>
                 </tr>
               ) : (
-                filteredReservations.map(r => (
+                displayedReservations.map(r => (
                   <tr key={r.id} className={`transition-colors border-b ${
                     theme === 'dark' ? 'border-[#E5E2D9]/5 hover:bg-[#E5E2D9]/5' : 'border-gray-100 hover:bg-gray-50'
                   }`}>
@@ -880,14 +875,14 @@ Cuevas de Alájar`);
 
         {/* VISTA MOVIL (TARJETAS) */}
         <div className="lg:hidden space-y-4">
-          {filteredReservations.length === 0 ? (
+          {displayedReservations.length === 0 ? (
             <div className={`p-12 border text-center italic transition-colors ${
               theme === 'dark' ? 'bg-[#151515] border-[#E5E2D9]/10 text-[#E5E2D9]/40' : 'bg-white border-gray-200 text-gray-400'
             }`}>
               No hay resultados.
             </div>
           ) : (
-            filteredReservations.map(r => (
+            displayedReservations.map(r => (
               <div key={r.id} className={`p-5 space-y-4 relative overflow-hidden group border transition-colors ${
                 theme === 'dark' ? 'bg-[#151515] border-[#E5E2D9]/10' : 'bg-white border-gray-200 shadow-sm'
               }`}>
