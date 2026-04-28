@@ -551,6 +551,42 @@ export default function App() {
               </div>
             </FadeIn>
           </div>
+
+          {/* New FAQ/Inclusions Section */}
+          <FadeIn delay={0.4}>
+            <div className="max-w-4xl mx-auto mt-20 p-8 md:p-12 bg-[#E5E2D9]/[0.02] border border-[#E5E2D9]/[0.05] relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[#C4A484]/5 blur-3xl rounded-full -mr-16 -mt-16"></div>
+              
+              <div className="relative z-10">
+                <h3 className="font-serif text-2xl md:text-3xl mb-8 text-[#E5E2D9] flex items-center gap-4">
+                  <Info className="w-6 h-6 text-[#C4A484]" />
+                  ¿Qué incluye las entradas a las cuevas de Alájar?
+                </h3>
+                
+                <ul className="space-y-6">
+                  {[
+                    "Visita del patrimonio natural e histórico del entorno.",
+                    "Visita al Centro de Interpretación Arias Montano.",
+                    "Visita al Centro de Visitantes (actualmente cerrado por obras de rehabilitación y mejoras).",
+                    "Visita al Santuario de la Reina de los Ángeles.",
+                    "Visita a las Cavidades del entorno: Sillita del Rey, Sima de los Caballos y Palacio Oscuro*. "
+                  ].map((item, idx) => (
+                    <li key={idx} className="flex items-start gap-4 text-[#E5E2D9]/70 group">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#C4A484] mt-2 shrink-0 group-hover:scale-125 transition-transform"></span>
+                      <span className="text-[15px] md:text-base leading-relaxed">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="mt-12 pt-8 border-t border-[#E5E2D9]/10">
+                  <p className="text-[#E5E2D9]/40 italic text-sm leading-relaxed">
+                    <span className="text-[#C4A484] font-bold not-italic mr-1">*Palacio Oscuro:</span> 
+                    dicha cavidad no será visitable entre los periodos comprendidos entre el 30/03 al 30/09. Reducción de 2€ a la entrada.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </FadeIn>
         </div>
       </section>
 
