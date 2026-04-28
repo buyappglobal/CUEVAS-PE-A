@@ -620,13 +620,13 @@ export default function App() {
             </ul>
           </div>
         </div>
-        <div className="max-w-7xl mx-auto px-6 mt-16 pt-8 border-t border-[#E5E2D9]/10 text-[10px] uppercase tracking-[0.1em] opacity-40 flex flex-col sm:flex-row justify-between items-center">
+        <div className="max-w-7xl mx-auto px-6 mt-16 pt-8 border-t border-[#E5E2D9]/10 text-[10px] uppercase tracking-[0.1em] font-bold opacity-80 flex flex-col sm:flex-row justify-between items-center">
           <p>© {new Date().getFullYear()} Cuevas Peña Arias Montano. Todos los derechos reservados.</p>
           <div className="flex gap-4 mt-4 sm:mt-0 items-center">
-            <button onClick={() => setIsLegalModalOpen(true)} className="hover:text-[#E5E2D9] uppercase tracking-[0.1em]">Aviso Legal</button>
-            <button onClick={() => setIsPrivacyModalOpen(true)} className="hover:text-[#E5E2D9] uppercase tracking-[0.1em]">Privacidad</button>
-            <span className="w-px h-3 bg-[#E5E2D9]/10"></span>
-            <a href="https://www.cuevasdealajar.com/admin" className="hover:text-[#C4A484] transition-colors opacity-50 hover:opacity-100 uppercase tracking-[0.1em]">Admin</a>
+            <button onClick={() => setIsLegalModalOpen(true)} className="hover:text-[#E5E2D9] uppercase tracking-[0.1em] font-black border-b border-transparent hover:border-white transition-all">Aviso Legal</button>
+            <button onClick={() => setIsPrivacyModalOpen(true)} className="hover:text-[#E5E2D9] uppercase tracking-[0.1em] font-black border-b border-transparent hover:border-white transition-all">Privacidad</button>
+            <span className="w-px h-3 bg-[#E5E2D9]/20"></span>
+            <a href="https://www.cuevasdealajar.com/admin" className="text-[#C4A484] hover:text-[#E5E2D9] transition-colors uppercase tracking-[0.1em] font-black">Admin</a>
           </div>
         </div>
       </footer>

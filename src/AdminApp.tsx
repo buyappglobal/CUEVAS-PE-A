@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { db, auth, loginWithGoogle, loginWithEmail, logout } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, query, getDocs, doc, getDoc, setDoc, updateDoc, increment, where, onSnapshot, deleteDoc } from 'firebase/firestore';
-import { Calendar, Clock, Ticket, Users, FileText, CheckCircle, Plus, Trash2, LogOut, Mountain, X, RefreshCw, Info, Ban, AlertCircle, Copy, Mail } from 'lucide-react';
+import { Calendar, Clock, Ticket, Users, FileText, CheckCircle, Plus, Trash2, LogOut, Mountain, X, RefreshCw, Info, Ban, AlertCircle, Copy, Mail, Sun, Moon } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function AdminApp() {
@@ -24,6 +24,16 @@ export default function AdminApp() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filterByVisitDate, setFilterByVisitDate] = useState(false);
   const [isCleaning, setIsCleaning] = useState(false);
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    const saved = localStorage.getItem('crm-theme');
+    return (saved as 'dark' | 'light') || 'dark';
+  });
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    localStorage.setItem('crm-theme', newTheme);
+  };
   
   // Login form states
   const [emailInput, setEmailInput] = useState('admin');
@@ -57,23 +67,31 @@ export default function AdminApp() {
   const Tooltip = ({ text }: { text: string }) => (
     <div className="group relative inline-block ml-1">
       <Info className="w-3 h-3 text-[#C4A484]/50 hover:text-[#C4A484] cursor-help" />
-      <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block w-64 p-3 bg-[#1A1A1A] border border-[#C4A484]/30 text-[10px] leading-relaxed text-[#E5E2D9] rounded shadow-2xl z-50 pointer-events-none">
+      <div className={`absolute bottom-full right-0 mb-2 hidden group-hover:block w-64 p-3 border text-[10px] leading-relaxed rounded shadow-2xl z-50 pointer-events-none transition-colors ${
+        theme === 'dark' ? 'bg-[#1A1A1A] border-[#C4A484]/30 text-[#E5E2D9]' : 'bg-white border-gray-200 text-gray-700'
+      }`}>
         {text}
-        <div className="absolute top-full right-1 border-8 border-transparent border-t-[#1A1A1A]"></div>
+        <div className={`absolute top-full right-1 border-8 border-transparent transition-colors ${
+          theme === 'dark' ? 'border-t-[#1A1A1A]' : 'border-t-white'
+        }`}></div>
       </div>
     </div>
   );
 
   // Status Badge Helper
   const StatusBadge = ({ r }: { r: any }) => (
-    <span className={`px-2 py-1 text-[10px] uppercase tracking-wider ${
+    <span className={`px-2 py-1 text-[10px] uppercase tracking-wider transition-colors ${
       r.status === 'confirmed' 
-        ? 'bg-emerald-900/40 text-emerald-300' 
+        ? theme === 'dark' ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-50 text-emerald-700'
       : r.status === 'paid'
-        ? 'bg-cyan-900/40 text-cyan-300 border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.2)]'
+        ? theme === 'dark' 
+          ? 'bg-cyan-900/40 text-cyan-300 border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.2)]' 
+          : 'bg-cyan-50 text-cyan-700 border border-cyan-200 shadow-sm'
         : r.status === 'pending'
-          ? 'bg-amber-900/40 text-amber-300 shadow-[0_0_8px_rgba(217,119,6,0.3)] animate-pulse'
-          : 'bg-red-900/40 text-red-300'
+          ? theme === 'dark' 
+            ? 'bg-amber-900/40 text-amber-300 shadow-[0_0_8px_rgba(217,119,6,0.3)] animate-pulse' 
+            : 'bg-amber-50 text-amber-700 border border-amber-200 animate-pulse'
+          : theme === 'dark' ? 'bg-red-900/40 text-red-300' : 'bg-red-50 text-red-700'
     }`}>
       {r.status === 'paid' ? '💰 Pagado' : 
        r.status === 'confirmed' ? '✅ Confirmado' : 
@@ -105,7 +123,7 @@ export default function AdminApp() {
           </button>
           <button 
             onClick={() => alert("📤 Envío de email vía sistema en desarrollo (Resend). Por favor, use el botón de Mailto para enviar manualmente.")}
-            className="p-1 text-[#E5E2D9]/20 hover:text-[#C4A484] transition-colors cursor-help"
+            className={`p-1 transition-colors cursor-help ${theme === 'dark' ? 'text-[#E5E2D9]/20 hover:text-[#C4A484]' : 'text-gray-300 hover:text-[#C4A484]'}`}
             title="Enviar vía Sistema (En desarrollo)"
           >
             <RefreshCw className="w-4 h-4 lg:w-3 lg:h-3" />
@@ -439,42 +457,77 @@ Cuevas de Alájar`);
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-[#0D0D0B] text-white flex items-center justify-center">Cargando...</div>;
+  if (loading) return (
+    <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${theme === 'dark' ? 'bg-[#0D0D0B] text-[#E5E2D9]' : 'bg-gray-50 text-gray-900'}`}>
+      Cargando...
+    </div>
+  );
 
   if (!isBypass && (!user || !isAdmin)) {
     return (
-      <div className="min-h-screen bg-[#0D0D0B] text-[#E5E2D9] flex flex-col items-center justify-center p-4">
+      <div className={`min-h-screen flex flex-col items-center justify-center p-4 transition-colors duration-300 ${
+        theme === 'dark' ? 'bg-[#0D0D0B] text-[#E5E2D9]' : 'bg-gray-50 text-gray-900'
+      }`}>
+        {/* Toggle Theme on Login */}
+        <div className="absolute top-6 right-6">
+          <button 
+            onClick={toggleTheme}
+            className={`p-3 rounded-full border transition-all flex items-center gap-2 ${
+              theme === 'dark' 
+                ? 'bg-[#151515] border-[#E5E2D9]/10 text-[#C4A484] hover:bg-[#E5E2D9]/5' 
+                : 'bg-white border-gray-200 text-[#C4A484] hover:bg-gray-100 shadow-sm'
+            }`}
+            title={theme === 'dark' ? 'Modo Claro' : 'Modo Oscuro'}
+          >
+            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            <span className="text-[10px] uppercase font-bold tracking-widest">{theme === 'dark' ? 'CLARO' : 'OSCURO'}</span>
+          </button>
+        </div>
+
         <img 
           src="https://solonet.es/wp-content/uploads/2026/04/ICONO-CUEVAS-ALAJAR.png" 
           alt="Panel de Taquilla" 
           className="w-20 h-20 object-contain mb-8"
           referrerPolicy="no-referrer"
         />
-        <h1 className="text-3xl font-serif mb-2">Panel de Taquilla</h1>        <p className="text-[#E5E2D9]/60 mb-8 max-w-sm text-center">Acceso restringido para el personal de las Cuevas de la Peña de Arias Montano.</p>
+        <h1 className="text-3xl font-serif mb-2">Panel de Taquilla</h1>
+        <p className={`mb-8 max-w-sm text-center transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/60' : 'text-gray-500'}`}>
+          Acceso restringido para el personal de las Cuevas de la Peña de Arias Montano.
+        </p>
         
-        <div className="bg-[#151515] p-6 border border-[#E5E2D9]/10 w-full max-w-sm mb-6">
+        <div className={`p-6 border w-full max-w-sm mb-6 transition-all ${
+          theme === 'dark' ? 'bg-[#151515] border-[#E5E2D9]/10' : 'bg-white border-gray-200 shadow-xl rounded-xl'
+        }`}>
           <form onSubmit={handleEmailSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs uppercase text-[#E5E2D9]/50 mb-1">Usuario / Email</label>
+              <label className={`block text-[10px] uppercase mb-1 font-bold tracking-widest transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>Usuario / Email</label>
               <input 
                 type="text" 
                 value={emailInput}
                 onChange={e => setEmailInput(e.target.value)}
-                className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/20 p-3 text-[#E5E2D9] focus:outline-none focus:border-[#C4A484]"
+                className={`w-full border p-3 focus:outline-none focus:border-[#C4A484] transition-colors ${
+                  theme === 'dark' ? 'bg-[#0D0D0B] border-[#E5E2D9]/20 text-[#E5E2D9]' : 'bg-gray-50 border-gray-200 text-gray-900'
+                }`}
               />
             </div>
             <div>
-              <label className="block text-xs uppercase text-[#E5E2D9]/50 mb-1">Contraseña</label>
+              <label className={`block text-[10px] uppercase mb-1 font-bold tracking-widest transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>Contraseña</label>
               <input 
                 type="password" 
                 value={passwordInput}
                 onChange={e => setPasswordInput(e.target.value)}
-                className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/20 p-3 text-[#E5E2D9] focus:outline-none focus:border-[#C4A484]"
+                className={`w-full border p-3 focus:outline-none focus:border-[#C4A484] transition-colors ${
+                  theme === 'dark' ? 'bg-[#0D0D0B] border-[#E5E2D9]/20 text-[#E5E2D9]' : 'bg-gray-50 border-gray-200 text-gray-900'
+                }`}
               />
             </div>
             <button 
               type="submit"
-              className="w-full bg-[#E5E2D9]/5 hover:bg-[#E5E2D9]/10 border border-[#E5E2D9]/20 transition-colors py-3 font-bold uppercase tracking-widest text-xs"
+              className={`w-full transition-all py-3 font-bold uppercase tracking-widest text-xs border ${
+                theme === 'dark' 
+                  ? 'bg-[#E5E2D9]/5 hover:bg-[#E5E2D9]/10 border-[#E5E2D9]/20 text-[#E5E2D9]' 
+                  : 'bg-[#C4A484] hover:bg-[#A68B6E] text-white border-[#C4A484] shadow-md'
+              }`}
             >
               Entrar
             </button>
@@ -482,10 +535,14 @@ Cuevas de Alájar`);
         </div>
 
         <div className="flex flex-col items-center gap-4">
-          <span className="text-xs uppercase tracking-wider text-[#E5E2D9]/30">O también</span>
+          <span className={`text-[10px] uppercase tracking-widest font-bold transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/30' : 'text-gray-400'}`}>O también</span>
           <button 
             onClick={loginWithGoogle}
-            className="bg-[#C4A484] text-[#0D0D0B] px-8 py-3 font-bold uppercase tracking-widest text-xs hover:bg-[#b09376] transition-colors"
+            className={`px-8 py-3 font-bold uppercase tracking-widest text-xs transition-all shadow-lg ${
+              theme === 'dark' 
+                ? 'bg-[#C4A484] text-[#0D0D0B] hover:bg-[#b09376]' 
+                : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+            }`}
           >
             Acceder con Google
           </button>
@@ -496,25 +553,69 @@ Cuevas de Alájar`);
 
   // Aggregate capacities from dayReservations for active dashboard
   return (
-    <div className="min-h-screen bg-[#0D0D0B] text-[#E5E2D9] font-sans">
-      <nav className="border-b border-[#E5E2D9]/10 bg-[#151515] px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <img 
-            src="https://solonet.es/wp-content/uploads/2026/04/ICONO-CUEVAS-ALAJAR.png" 
-            alt="Isotipo" 
-            className="w-8 h-8 object-contain"
-            referrerPolicy="no-referrer"
-          />
-          <span className="font-serif text-xl tracking-wide">Panel Taquilla</span>
+    <div className={`min-h-screen font-sans transition-colors duration-300 ${
+      theme === 'dark' ? 'bg-[#0D0D0B] text-[#E5E2D9]' : 'bg-gray-50 text-gray-900'
+    }`}>
+      <nav className={`border-b px-4 lg:px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4 ${
+        theme === 'dark' ? 'border-[#E5E2D9]/10 bg-[#151515]' : 'border-gray-200 bg-white shadow-sm'
+      }`}>
+        <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
+          <div className="flex items-center gap-3">
+            <img 
+              src="https://solonet.es/wp-content/uploads/2026/04/ICONO-CUEVAS-ALAJAR.png" 
+              alt="Isotipo" 
+              className="w-8 h-8 object-contain"
+              referrerPolicy="no-referrer"
+            />
+            <span className={`font-serif text-xl tracking-wide ${theme === 'dark' ? 'text-[#E5E2D9]' : 'text-gray-900'}`}>Panel Taquilla</span>
+          </div>
+          
+          {/* Mobile Theme Logout */}
+          <div className="flex md:hidden items-center gap-2">
+            <button 
+              onClick={toggleTheme}
+              className={`p-2 rounded-full transition-all border ${
+                theme === 'dark' ? 'bg-[#0D0D0B] border-[#E5E2D9]/10 text-[#C4A484]' : 'bg-gray-50 border-gray-200 text-[#C4A484]'
+              }`}
+            >
+              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+            <button 
+              onClick={() => isBypass ? setIsBypass(false) : logout()} 
+              className="p-2 text-red-500/50 hover:text-red-500 transition-colors"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-4 text-sm">
-          <span className="text-[#E5E2D9]/60">{isBypass ? 'Administrador Local' : user?.email}</span>
+
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={toggleTheme}
+            className={`px-4 py-2 rounded-full border transition-all flex items-center gap-2 shadow-md relative z-50 ${
+              theme === 'dark' 
+                ? 'bg-[#1A1A1A] border-[#C4A484]/40 text-[#C4A484] hover:bg-[#C4A484]/10' 
+                : 'bg-white border-gray-300 text-[#C4A484] hover:bg-gray-50'
+            }`}
+            title={theme === 'dark' ? 'Pasar a Modo Claro' : 'Pasar a Modo Oscuro'}
+          >
+            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            <span className="text-[10px] font-black uppercase tracking-widest">{theme === 'dark' ? 'Claro' : 'Oscuro'}</span>
+          </button>
+
+          <div className="hidden md:flex items-center gap-4 border-l pl-4 border-gray-500/20">
+            <span className={`font-mono text-[11px] font-bold ${theme === 'dark' ? 'text-[#E5E2D9]/70' : 'text-gray-500'}`}>
+              <Users className="w-3.5 h-3.5 inline mr-1.5 opacity-70" />
+              {isBypass ? 'Administrador Local' : user?.email}
+            </span>
+          </div>
+
           <button 
             onClick={() => {
               if (isBypass) setIsBypass(false);
               else logout();
             }} 
-            className="text-[#c48484] hover:text-red-400 flex items-center gap-1"
+            className="text-[#c48484] hover:text-red-400 flex items-center gap-1 font-black uppercase text-[10px] tracking-widest pl-2 border-l border-gray-500/20"
           >
             <LogOut className="w-4 h-4" /> Salir
           </button>
@@ -524,11 +625,13 @@ Cuevas de Alájar`);
       <main className="max-w-6xl mx-auto p-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
             <div>
-              <h2 className="text-2xl font-serif mb-1">Gestión de Aforos y Reservas</h2>
-              <p className="text-[#E5E2D9]/60 text-sm">Visualiza las ventas online y registra entradas vendidas in-situ.</p>
+              <h2 className={`text-2xl font-serif mb-1 ${theme === 'dark' ? 'text-[#E5E2D9]' : 'text-gray-900'}`}>Gestión de Aforos y Reservas</h2>
+              <p className={theme === 'dark' ? 'text-[#E5E2D9]/60 text-sm' : 'text-gray-500 text-sm'}>Visualiza las ventas online y registra entradas vendidas in-situ.</p>
             </div>
             
-            <div className="flex flex-wrap items-center gap-4 bg-[#151515] p-2 border border-[#E5E2D9]/10">
+            <div className={`flex flex-wrap items-center gap-4 p-2 border transition-colors ${
+              theme === 'dark' ? 'bg-[#151515] border-[#E5E2D9]/10' : 'bg-white border-gray-200 shadow-sm'
+            }`}>
               <div className="flex flex-col">
                 <span className="text-[9px] uppercase tracking-widest text-[#C4A484] mb-1 font-bold">Fecha de Consulta (Aforos)</span>
                 <div className="flex items-center gap-2">
@@ -536,7 +639,11 @@ Cuevas de Alájar`);
                     type="date" 
                     value={dateFilter}
                     onChange={(e) => setDateFilter(e.target.value)}
-                    className="bg-[#0D0D0B] border border-[#E5E2D9]/10 p-2 text-[#E5E2D9] text-xs focus:outline-none [&::-webkit-calendar-picker-indicator]:invert [color-scheme:dark]"
+                    className={`p-2 text-xs focus:outline-none border transition-colors ${
+                      theme === 'dark' 
+                        ? 'bg-[#0D0D0B] border-[#E5E2D9]/10 text-[#E5E2D9] [&::-webkit-calendar-picker-indicator]:invert [color-scheme:dark]' 
+                        : 'bg-white border-gray-200 text-gray-900'
+                    }`}
                   />
                   <button 
                     onClick={fetchData}
@@ -549,12 +656,18 @@ Cuevas de Alájar`);
                 </div>
               </div>
               
-              <div className="flex flex-col border-l border-[#E5E2D9]/10 pl-4">
-                <span className="text-[9px] uppercase tracking-widest text-[#E5E2D9]/40 mb-1 font-bold">Filtro Listado</span>
+              <div className={`flex flex-col border-l pl-4 ${theme === 'dark' ? 'border-[#E5E2D9]/10' : 'border-gray-200'}`}>
+                <span className={`text-[9px] uppercase tracking-widest mb-1 font-bold ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>Filtro Listado</span>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setFilterByVisitDate(!filterByVisitDate)}
-                    className={`px-4 py-2 text-[10px] font-bold uppercase transition-all flex items-center gap-2 ${filterByVisitDate ? 'bg-[#C4A484] text-[#0D0D0B]' : 'bg-[#E5E2D9]/5 text-[#E5E2D9]/50 border border-[#E5E2D9]/10'}`}
+                    className={`px-4 py-2 text-[10px] font-bold uppercase transition-all flex items-center gap-2 border ${
+                      filterByVisitDate 
+                        ? 'bg-[#C4A484] border-[#C4A484] text-[#0D0D0B]' 
+                        : theme === 'dark' 
+                          ? 'bg-[#E5E2D9]/5 text-[#E5E2D9]/50 border-[#E5E2D9]/10 hover:bg-[#E5E2D9]/10' 
+                          : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'
+                    }`}
                   >
                     {filterByVisitDate ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
                     {filterByVisitDate ? 'Filtro Registro: ON' : 'Filtro Registro: OFF'}
@@ -565,21 +678,27 @@ Cuevas de Alájar`);
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 mb-8 bg-[#151515]/50 p-4 border-b border-[#E5E2D9]/10">
+          <div className={`flex flex-wrap items-center gap-3 mb-8 p-4 border-b transition-colors ${
+            theme === 'dark' ? 'bg-[#151515]/50 border-[#E5E2D9]/10' : 'bg-gray-100/50 border-gray-200'
+          }`}>
             <div className="relative flex-1 md:w-80">
               <input 
                 type="text" 
                 placeholder="Buscar por Nombre, Email o Localizador..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-[#151515] border border-[#E5E2D9]/10 p-3 text-[#E5E2D9] text-xs focus:border-[#C4A484]/50 focus:outline-none transition-colors pr-10"
+                className={`w-full border p-3 text-xs focus:border-[#C4A484]/50 focus:outline-none transition-colors pr-10 ${
+                  theme === 'dark' ? 'bg-[#151515] border-[#E5E2D9]/10 text-[#E5E2D9]' : 'bg-white border-gray-200 text-gray-900'
+                }`}
               />
             </div>
 
             <select 
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-[#151515] border border-[#E5E2D9]/10 p-3 text-[#E5E2D9] text-xs focus:border-[#C4A484]/50 focus:outline-none cursor-pointer min-w-[160px]"
+              className={`border p-3 text-xs focus:border-[#C4A484]/50 focus:outline-none cursor-pointer min-w-[160px] transition-colors ${
+                theme === 'dark' ? 'bg-[#151515] border-[#E5E2D9]/10 text-[#E5E2D9]' : 'bg-white border-gray-200 text-gray-900'
+              }`}
             >
               <option value="all">Todos los Estados</option>
               <option value="confirmed">✅ Confirmados</option>
@@ -605,26 +724,26 @@ Cuevas de Alájar`);
               {isCleaning ? 'Limpiando...' : 'Borrar Todo'}
             </button>
           </div>
-
-        {/* Dashboards Capacities (Basados en dateFilter) */}
-        <div className="mb-4 flex items-center gap-2">
-          <Mountain className="w-4 h-4 text-[#C4A484]" />
-          <h3 className="text-sm uppercase tracking-widest text-[#E5E2D9] font-bold">
-            Ocupación para el día {dateFilter.split('-').reverse().join('/')}
-          </h3>
-        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {slots.map(slot => (
-            <div key={slot} className="bg-[#151515] border border-[#E5E2D9]/10 p-6 flex flex-col justify-between relative overflow-hidden">
+            <div key={slot} className={`p-6 flex flex-col justify-between relative overflow-hidden border transition-colors ${
+              theme === 'dark' ? 'bg-[#151515] border-[#E5E2D9]/10' : 'bg-white border-gray-200 shadow-sm'
+            }`}>
               <div className="flex justify-between items-start mb-4 relative z-10">
                 <span className="text-xl font-mono text-[#C4A484]">{slot}</span>
-                <span className={`px-2 py-1 text-xs font-bold uppercase ${capacities[slot].remaining <= 2 ? 'bg-red-900/50 text-red-200' : 'bg-[#C4A484]/20 text-[#C4A484]'}`}>
+                <span className={`px-2 py-1 text-xs font-bold uppercase transition-colors ${
+                  capacities[slot].remaining <= 2 
+                    ? 'bg-red-500/10 text-red-500 border border-red-500/20' 
+                    : theme === 'dark' 
+                      ? 'bg-[#C4A484]/20 text-[#C4A484]' 
+                      : 'bg-[#C4A484]/10 text-[#C4A484]'
+                }`}>
                   {capacities[slot].remaining} Libres
                 </span>
               </div>
               <div className="flex items-end gap-2 relative z-10">
                 <span className="text-4xl font-light">{capacities[slot].booked}</span>
-                <span className="text-[#E5E2D9]/50 mb-1">/ 30 ocupadas</span>
+                <span className={`mb-1 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/50' : 'text-gray-400'}`}>/ 30 ocupadas</span>
               </div>
               {/* Progress bar background */}
               <div 
@@ -637,7 +756,7 @@ Cuevas de Alájar`);
 
         {/* Reservations List */}
         <div className="flex justify-between items-end mb-4">
-          <h3 className="text-sm uppercase tracking-widest text-[#E5E2D9]/40 font-bold">
+          <h3 className={`text-sm uppercase tracking-widest font-bold ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>
             Listado de Registros ({filteredReservations.length})
           </h3>
           {statusFilter !== 'all' && (
@@ -648,9 +767,13 @@ Cuevas de Alájar`);
         </div>
 
         {/* VISTA DESKTOP (TABLA) */}
-        <div className="hidden lg:block bg-[#151515] border border-[#E5E2D9]/10">
+        <div className={`hidden lg:block border transition-colors ${
+          theme === 'dark' ? 'bg-[#151515] border-[#E5E2D9]/10' : 'bg-white border-gray-200 shadow-sm'
+        }`}>
           <table className="w-full text-left text-sm">
-            <thead className="bg-[#0D0D0B] text-[#E5E2D9]/50 uppercase tracking-wider text-[10px] border-b border-[#E5E2D9]/10">
+            <thead className={`uppercase tracking-wider text-[10px] border-b transition-colors ${
+              theme === 'dark' ? 'bg-[#0D0D0B] text-[#E5E2D9]/50 border-[#E5E2D9]/10' : 'bg-gray-50 text-gray-500 border-gray-200'
+            }`}>
               <tr>
                 <th className="p-4 whitespace-nowrap">
                   Registro
@@ -686,10 +809,10 @@ Cuevas de Alájar`);
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-[#E5E2D9]/5 dark:divide-white/5">
               {filteredReservations.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-12 text-center text-[#E5E2D9]/40 italic">
+                  <td colSpan={8} className={`p-12 text-center italic transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>
                     {searchTerm || statusFilter !== 'all' 
                       ? 'No se encontraron resultados para los filtros aplicados.' 
                       : 'No hay reservas registradas en el sistema.'}
@@ -697,23 +820,25 @@ Cuevas de Alájar`);
                 </tr>
               ) : (
                 filteredReservations.map(r => (
-                  <tr key={r.id} className="border-b border-[#E5E2D9]/5 hover:bg-[#E5E2D9]/5 transition-colors">
-                    <td className="p-4 whitespace-nowrap text-[10px] font-mono text-[#E5E2D9]/40">
+                  <tr key={r.id} className={`transition-colors border-b ${
+                    theme === 'dark' ? 'border-[#E5E2D9]/5 hover:bg-[#E5E2D9]/5' : 'border-gray-100 hover:bg-gray-50'
+                  }`}>
+                    <td className={`p-4 whitespace-nowrap text-[10px] font-mono transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>
                       {r.createdAt ? new Date(r.createdAt).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }) : '---'}
                     </td>
                     <td className="p-4 whitespace-nowrap">
                       <div className="font-mono text-[#C4A484]">{r.date}</div>
-                      <div className="text-xs text-[#E5E2D9]/60">{r.time}</div>
+                      <div className={`text-xs transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/60' : 'text-gray-500'}`}>{r.time}</div>
                     </td>
-                    <td className="p-4 font-mono text-xs text-[#E5E2D9]/50">#{r.localizador || 'N/A'}</td>
+                    <td className={`p-4 font-mono text-xs transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/50' : 'text-gray-400'}`}>#{r.localizador || 'N/A'}</td>
                     <td className="p-4">
                       <div className="flex items-center gap-2">
                         <Users className="w-3 h-3 text-[#C4A484]/40" />
-                        <div className="font-medium text-[#E5E2D9]">{r.customerName}</div>
+                        <div className={`font-medium transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]' : 'text-gray-900'}`}>{r.customerName}</div>
                       </div>
                       <div className="flex items-center gap-2 mt-1 group/email">
                         <Mail className="w-3 h-3 text-[#E5E2D9]/20" />
-                        <div className="text-[10px] text-[#E5E2D9]/40">{r.customerEmail}</div>
+                        <div className={`text-[10px] transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>{r.customerEmail}</div>
                         <button 
                           onClick={() => {
                             navigator.clipboard.writeText(r.customerEmail);
@@ -726,12 +851,16 @@ Cuevas de Alájar`);
                         </button>
                       </div>
                     </td>
-                    <td className="p-4 text-[#E5E2D9]/70">
+                    <td className={`p-4 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/70' : 'text-gray-600'}`}>
                       {r.tickets?.adult || 0} / {r.tickets?.reduced || 0} / {r.tickets?.childFree || 0}
                     </td>
-                    <td className="p-4 font-medium">{r.totalTickets}</td>
+                    <td className={`p-4 font-medium transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]' : 'text-gray-900'}`}>{r.totalTickets}</td>
                     <td className="p-4">
-                      <span className={`px-2 py-1 text-[10px] uppercase tracking-wider ${r.source === 'online' ? 'bg-blue-900/30 text-blue-300' : 'bg-green-900/30 text-green-300'}`}>
+                      <span className={`px-2 py-1 text-[10px] uppercase tracking-wider transition-colors ${
+                        r.source === 'online' 
+                          ? theme === 'dark' ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-600'
+                          : theme === 'dark' ? 'bg-green-900/30 text-green-300' : 'bg-green-50 text-green-600'
+                      }`}>
                         {r.source}
                       </span>
                     </td>
@@ -752,41 +881,49 @@ Cuevas de Alájar`);
         {/* VISTA MOVIL (TARJETAS) */}
         <div className="lg:hidden space-y-4">
           {filteredReservations.length === 0 ? (
-            <div className="p-12 bg-[#151515] border border-[#E5E2D9]/10 text-center text-[#E5E2D9]/40 italic">
+            <div className={`p-12 border text-center italic transition-colors ${
+              theme === 'dark' ? 'bg-[#151515] border-[#E5E2D9]/10 text-[#E5E2D9]/40' : 'bg-white border-gray-200 text-gray-400'
+            }`}>
               No hay resultados.
             </div>
           ) : (
             filteredReservations.map(r => (
-              <div key={r.id} className="bg-[#151515] border border-[#E5E2D9]/10 p-5 space-y-4 relative overflow-hidden group">
+              <div key={r.id} className={`p-5 space-y-4 relative overflow-hidden group border transition-colors ${
+                theme === 'dark' ? 'bg-[#151515] border-[#E5E2D9]/10' : 'bg-white border-gray-200 shadow-sm'
+              }`}>
                 <div className="flex justify-between items-start">
                   <div>
-                    <div className="text-[10px] font-mono text-[#E5E2D9]/40 mb-1">#{r.localizador}</div>
-                    <div className="font-serif text-lg text-[#E5E2D9]">{r.customerName}</div>
-                    <div className="text-[10px] text-[#E5E2D9]/40 flex items-center gap-1">
+                    <div className={`text-[10px] font-mono mb-1 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>#{r.localizador}</div>
+                    <div className={`font-serif text-lg transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]' : 'text-gray-900'}`}>{r.customerName}</div>
+                    <div className={`text-[10px] flex items-center gap-1 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>
                       <Mail className="w-3 h-3" />
                       {r.customerEmail}
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <StatusBadge r={r} />
-                    <span className={`px-2 py-0.5 text-[9px] uppercase tracking-wider ${r.source === 'online' ? 'bg-blue-900/20 text-blue-300' : 'bg-green-900/20 text-green-300'}`}>
+                    <span className={`px-2 py-0.5 text-[9px] uppercase tracking-wider transition-colors ${
+                      r.source === 'online' 
+                        ? theme === 'dark' ? 'bg-blue-900/20 text-blue-300' : 'bg-blue-50 text-blue-600'
+                        : theme === 'dark' ? 'bg-green-900/20 text-green-300' : 'bg-green-50 text-green-600'
+                    }`}>
                       {r.source}
                     </span>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 border-y border-[#E5E2D9]/5 py-3">
-                  <div className="space-y-1 border-r border-[#E5E2D9]/5">
-                    <div className="text-[9px] uppercase tracking-tighter text-[#E5E2D9]/30 font-bold">Visita</div>
+                <div className={`grid grid-cols-2 gap-4 border-y py-3 transition-colors ${theme === 'dark' ? 'border-[#E5E2D9]/5' : 'border-gray-100'}`}>
+                  <div className={`space-y-1 border-r transition-colors ${theme === 'dark' ? 'border-[#E5E2D9]/5' : 'border-gray-100'}`}>
+                    <div className={`text-[9px] uppercase tracking-tighter font-bold transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/30' : 'text-gray-400'}`}>Visita</div>
                     <div className="font-mono text-[#C4A484] text-sm">{r.date}</div>
-                    <div className="text-xs text-[#E5E2D9] font-bold">{r.time}</div>
+                    <div className={`text-xs font-bold transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]' : 'text-gray-900'}`}>{r.time}</div>
                   </div>
                   <div className="space-y-1">
-                    <div className="text-[9px] uppercase tracking-tighter text-[#E5E2D9]/30 font-bold">Tickets (A/R/I)</div>
-                    <div className="text-sm font-bold text-[#E5E2D9]">
-                      {r.totalTickets} <span className="text-[10px] font-normal text-[#E5E2D9]/40 tracking-widest ml-1">({r.tickets?.adult}/{r.tickets?.reduced}/{r.tickets?.childFree})</span>
+                    <div className={`text-[9px] uppercase tracking-tighter font-bold transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/30' : 'text-gray-400'}`}>Tickets (A/R/I)</div>
+                    <div className={`text-sm font-bold transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]' : 'text-gray-900'}`}>
+                      {r.totalTickets} <span className={`text-[10px] font-normal tracking-widest ml-1 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>({r.tickets?.adult}/{r.tickets?.reduced}/{r.tickets?.childFree})</span>
                     </div>
-                    <div className="text-[9px] text-[#E5E2D9]/40 italic">Registro: {r.createdAt ? new Date(r.createdAt).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '---'}</div>
+                    <div className={`text-[9px] italic transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>Registro: {r.createdAt ? new Date(r.createdAt).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '---'}</div>
                   </div>
                 </div>
 
@@ -804,20 +941,26 @@ Cuevas de Alájar`);
 
       {/* Manual Confirmation Modal */}
       {confirmModal.show && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[60]">
-          <div className="bg-[#151515] border border-emerald-900/50 p-8 max-w-sm w-full text-center shadow-2xl">
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[60] backdrop-blur-sm">
+          <div className={`p-8 max-w-sm w-full text-center shadow-2xl border transition-colors ${
+            theme === 'dark' ? 'bg-[#151515] border-emerald-900/50' : 'bg-white border-emerald-100'
+          }`}>
             <CheckCircle className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
-            <h3 className="text-xl font-serif mb-2">Confirmar Pago</h3>
-            <p className="text-sm text-[#E5E2D9]/60 mb-6">
+            <h3 className={`text-xl font-serif mb-2 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]' : 'text-gray-900'}`}>Confirmar Pago</h3>
+            <p className={`text-sm mb-6 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/60' : 'text-gray-600'}`}>
               Esta reserva aparece como <strong>PENDIENTE</strong>. 
-              <span className="block mt-4 p-3 bg-emerald-900/20 text-emerald-300 text-xs rounded border border-emerald-800/30">
+              <span className={`block mt-4 p-3 text-xs rounded border transition-colors ${
+                theme === 'dark' ? 'bg-emerald-900/20 text-emerald-300 border-emerald-800/30' : 'bg-emerald-50 text-emerald-700 border-emerald-100'
+              }`}>
                 Asegúrate de que el pago aparece como 'Correcto' en tu terminal de Redsys antes de confirmar en el CRM.
               </span>
             </p>
             <div className="flex gap-3">
               <button 
                 onClick={() => setConfirmModal({ show: false, resId: null })}
-                className="flex-1 py-2 border border-[#E5E2D9]/20 hover:bg-white/5 transition-colors text-xs uppercase font-bold"
+                className={`flex-1 py-2 border transition-colors text-xs uppercase font-bold ${
+                  theme === 'dark' ? 'border-[#E5E2D9]/20 hover:bg-white/5' : 'border-gray-200 hover:bg-gray-50'
+                }`}
               >
                 Cerrar
               </button>
@@ -835,16 +978,20 @@ Cuevas de Alájar`);
       {/* Manual Email Confirmation Modal */}
       {confirmEmailModal.show && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
-          <div className="bg-[#151515] border border-blue-900/30 p-8 max-w-sm w-full text-center shadow-2xl">
+          <div className={`p-8 max-w-sm w-full text-center shadow-2xl border transition-colors ${
+            theme === 'dark' ? 'bg-[#151515] border-blue-900/30' : 'bg-white border-blue-100'
+          }`}>
             <Mail className="w-16 h-16 text-blue-400 mx-auto mb-4" />
-            <h3 className="text-xl font-serif mb-2 text-[#E5E2D9]">Confirmar Envío de Email</h3>
+            <h3 className={`text-xl font-serif mb-2 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]' : 'text-gray-900'}`}>Confirmar Envío de Email</h3>
             
-            <p className="text-sm text-[#E5E2D9]/70 mb-6 leading-relaxed">
-              ¿Has comprobado primero en el panel de <strong>Redsys</strong> que el pago del pedido <span className="text-[#E5E2D9]">#{confirmEmailModal.orderId}</span> es correcto?
+            <p className={`text-sm mb-6 leading-relaxed transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/70' : 'text-gray-600'}`}>
+              ¿Has comprobado primero en el panel de <strong>Redsys</strong> que el pago del pedido <span className={theme === 'dark' ? 'text-[#E5E2D9]' : 'font-bold'}>#{confirmEmailModal.orderId}</span> es correcto?
             </p>
             
-            <div className="bg-blue-900/10 border border-blue-900/50 p-4 mb-8">
-              <p className="text-[10px] text-blue-300 flex items-start gap-2 text-left">
+            <div className={`border p-4 mb-8 transition-colors ${
+              theme === 'dark' ? 'bg-blue-900/10 border-blue-900/50' : 'bg-blue-50 border-blue-100'
+            }`}>
+              <p className={`text-[10px] flex items-start gap-2 text-left transition-colors ${theme === 'dark' ? 'text-blue-300' : 'text-blue-700'}`}>
                 <Info className="w-4 h-4 flex-shrink-0" />
                 Al confirmar, se enviará el email oficial de reserva al cliente y el estado pasará a <strong>CONFIRMADO</strong> automáticamente en el CRM.
               </p>
@@ -853,7 +1000,9 @@ Cuevas de Alájar`);
             <div className="grid grid-cols-2 gap-3">
               <button 
                 onClick={() => setConfirmEmailModal({ show: false, orderId: '' })}
-                className="py-2 border border-[#E5E2D9]/10 hover:bg-[#E5E2D9]/5 transition-colors text-[10px] uppercase font-bold tracking-wider"
+                className={`py-2 border transition-colors text-[10px] uppercase font-bold tracking-wider ${
+                  theme === 'dark' ? 'border-[#E5E2D9]/10 hover:bg-[#E5E2D9]/5' : 'border-gray-200 hover:bg-gray-50'
+                }`}
               >
                 Cerrar
               </button>
@@ -870,18 +1019,22 @@ Cuevas de Alájar`);
 
       {/* Cancel Confirmation Modal */}
       {cancelModal.show && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[60]">
-          <div className="bg-[#151515] border border-red-900/50 p-8 max-w-sm w-full text-center shadow-2xl">
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[60] backdrop-blur-sm">
+          <div className={`p-8 max-w-sm w-full text-center shadow-2xl border transition-colors ${
+            theme === 'dark' ? 'bg-[#151515] border-red-900/50' : 'bg-white border-red-100'
+          }`}>
             <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h3 className="text-xl font-serif mb-2">¿Anular Reserva?</h3>
-            <p className="text-sm text-[#E5E2D9]/60 mb-6">
+            <h3 className={`text-xl font-serif mb-2 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]' : 'text-gray-900'}`}>¿Anular Reserva?</h3>
+            <p className={`text-sm mb-6 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/60' : 'text-gray-600'}`}>
               Esta acción liberará el aforo. 
               <span className="block mt-2 font-bold text-red-400">IMPORTANTE: Esta herramienta NO devuelve el dinero automáticamente. Debes realizar la devolución desde tu terminal de Redsys.</span>
             </p>
             <div className="flex gap-3">
               <button 
                 onClick={() => setCancelModal({ show: false, resId: null })}
-                className="flex-1 py-2 border border-[#E5E2D9]/20 hover:bg-white/5 transition-colors text-xs uppercase font-bold"
+                className={`flex-1 py-2 border transition-colors text-xs uppercase font-bold ${
+                  theme === 'dark' ? 'border-[#E5E2D9]/20 hover:bg-white/5' : 'border-gray-200 hover:bg-gray-50'
+                }`}
               >
                 Cerrar
               </button>
@@ -903,12 +1056,14 @@ Cuevas de Alájar`);
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-[#151513] border border-[#C4A484]/30 w-full max-w-lg relative flex flex-col max-h-[90vh]"
+            className={`w-full max-w-lg relative flex flex-col max-h-[90vh] border transition-colors shadow-2xl ${
+              theme === 'dark' ? 'bg-[#151513] border-[#C4A484]/30' : 'bg-white border-gray-200'
+            }`}
           >
             <div className="p-8 overflow-y-auto w-full">
               <button 
                 onClick={() => setIsManualSaleOpen(false)}
-                className="absolute top-4 right-4 text-[#E5E2D9]/40 hover:text-white z-20"
+                className={`absolute top-4 right-4 z-20 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40 hover:text-white' : 'text-gray-400 hover:text-gray-900'}`}
               >
                 <X className="w-6 h-6" />
               </button>
@@ -917,21 +1072,25 @@ Cuevas de Alájar`);
               <form onSubmit={handleManualSale} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-[#E5E2D9]/40 mb-2 font-bold">FECHA VISITA</label>
+                    <label className={`block text-[10px] uppercase tracking-widest mb-2 font-bold transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>FECHA VISITA</label>
                     <input 
                       type="date"
                       required
                       value={manualSaleForm.date}
                       onChange={e => setManualSaleForm({...manualSaleForm, date: e.target.value})}
-                      className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/10 p-3 text-sm text-[#E5E2D9] focus:outline-none focus:border-[#C4A484]/50 [color-scheme:dark]"
+                      className={`w-full border p-3 text-sm focus:outline-none focus:border-[#C4A484]/50 transition-colors ${
+                        theme === 'dark' ? 'bg-[#0D0D0B] border-[#E5E2D9]/10 text-[#E5E2D9] [color-scheme:dark]' : 'bg-gray-50 border-gray-200 text-gray-900'
+                      }`}
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-[#E5E2D9]/40 mb-2 font-bold">HORARIO</label>
+                    <label className={`block text-[10px] uppercase tracking-widest mb-2 font-bold transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>HORARIO</label>
                     <select 
                       value={manualSaleForm.time}
                       onChange={e => setManualSaleForm({...manualSaleForm, time: e.target.value})}
-                      className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/10 p-3 text-sm text-[#E5E2D9] focus:outline-none focus:border-[#C4A484]/50"
+                      className={`w-full border p-3 text-sm focus:outline-none focus:border-[#C4A484]/50 transition-colors ${
+                        theme === 'dark' ? 'bg-[#0D0D0B] border-[#E5E2D9]/10 text-[#E5E2D9]' : 'bg-gray-50 border-gray-200 text-gray-900'
+                      }`}
                     >
                       <option value="11:00">11:00</option>
                       <option value="12:30">12:30</option>
@@ -941,68 +1100,78 @@ Cuevas de Alájar`);
                 </div>
 
                 <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-[#E5E2D9]/40 mb-2 font-bold">NOMBRE COMPRADOR</label>
+                  <label className={`block text-[10px] uppercase tracking-widest mb-2 font-bold transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>NOMBRE COMPRADOR</label>
                   <input 
                     type="text"
                     required
                     placeholder="Ej: Juan Pérez"
                     value={manualSaleForm.customerName}
                     onChange={e => setManualSaleForm({...manualSaleForm, customerName: e.target.value})}
-                    className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/10 p-3 text-sm text-[#E5E2D9] focus:outline-none focus:border-[#C4A484]/50"
+                    className={`w-full border p-3 text-sm focus:outline-none focus:border-[#C4A484]/50 transition-colors ${
+                      theme === 'dark' ? 'bg-[#0D0D0B] border-[#E5E2D9]/10 text-[#E5E2D9]' : 'bg-gray-50 border-gray-200 text-gray-900'
+                    }`}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-[#E5E2D9]/40 mb-2 font-bold">EMAIL (OPCIONAL)</label>
+                  <label className={`block text-[10px] uppercase tracking-widest mb-2 font-bold transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>EMAIL (OPCIONAL)</label>
                   <input 
                     type="email"
                     placeholder="ejemplo@email.com"
                     value={manualSaleForm.customerEmail}
                     onChange={e => setManualSaleForm({...manualSaleForm, customerEmail: e.target.value})}
-                    className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/10 p-3 text-sm text-[#E5E2D9] focus:outline-none focus:border-[#C4A484]/50"
+                    className={`w-full border p-3 text-sm focus:outline-none focus:border-[#C4A484]/50 transition-colors ${
+                      theme === 'dark' ? 'bg-[#0D0D0B] border-[#E5E2D9]/10 text-[#E5E2D9]' : 'bg-gray-50 border-gray-200 text-gray-900'
+                    }`}
                   />
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-[#E5E2D9]/40 mb-2 font-bold">ADULTO</label>
+                    <label className={`block text-[10px] uppercase tracking-widest mb-2 font-bold transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>ADULTO</label>
                     <input 
                       type="number" 
                       min="0"
                       value={manualSaleForm.tickets.adult}
                       onChange={e => setManualSaleForm({...manualSaleForm, tickets: {...manualSaleForm.tickets, adult: parseInt(e.target.value) || 0}})}
-                      className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/10 p-3 text-sm text-[#E5E2D9] text-center focus:outline-none focus:border-[#C4A484]/50"
+                      className={`w-full border p-3 text-sm text-center focus:outline-none focus:border-[#C4A484]/50 transition-colors ${
+                        theme === 'dark' ? 'bg-[#0D0D0B] border-[#E5E2D9]/10 text-[#E5E2D9]' : 'bg-gray-50 border-gray-200 text-gray-900'
+                      }`}
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-[#E5E2D9]/40 mb-2 font-bold">REDUCIDA</label>
+                    <label className={`block text-[10px] uppercase tracking-widest mb-2 font-bold transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>REDUCIDA</label>
                     <input 
                       type="number" 
                       min="0"
                       value={manualSaleForm.tickets.reduced}
                       onChange={e => setManualSaleForm({...manualSaleForm, tickets: {...manualSaleForm.tickets, reduced: parseInt(e.target.value) || 0}})}
-                      className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/10 p-3 text-sm text-[#E5E2D9] text-center focus:outline-none focus:border-[#C4A484]/50"
+                      className={`w-full border p-3 text-sm text-center focus:outline-none focus:border-[#C4A484]/50 transition-colors ${
+                        theme === 'dark' ? 'bg-[#0D0D0B] border-[#E5E2D9]/10 text-[#E5E2D9]' : 'bg-gray-50 border-gray-200 text-gray-900'
+                      }`}
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-[#E5E2D9]/40 mb-2 font-bold">INFANTIL</label>
+                    <label className={`block text-[10px] uppercase tracking-widest mb-2 font-bold transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>INFANTIL</label>
                     <input 
                       type="number" 
                       min="0"
                       value={manualSaleForm.tickets.childFree}
                       onChange={e => setManualSaleForm({...manualSaleForm, tickets: {...manualSaleForm.tickets, childFree: parseInt(e.target.value) || 0}})}
-                      className="w-full bg-[#0D0D0B] border border-[#E5E2D9]/10 p-3 text-sm text-[#E5E2D9] text-center focus:outline-none focus:border-[#C4A484]/50"
+                      className={`w-full border p-3 text-sm text-center focus:outline-none focus:border-[#C4A484]/50 transition-colors ${
+                        theme === 'dark' ? 'bg-[#0D0D0B] border-[#E5E2D9]/10 text-[#E5E2D9]' : 'bg-gray-50 border-gray-200 text-gray-900'
+                      }`}
                     />
                   </div>
                 </div>
 
-                <div className="pt-6 border-t border-[#E5E2D9]/10 flex items-center justify-between">
-                  <div className="text-[#E5E2D9]/40 uppercase text-[10px] tracking-widest">
-                    Total: <span className="text-[#C4A484] ml-2">{manualSaleForm.tickets.adult + manualSaleForm.tickets.reduced + manualSaleForm.tickets.childFree} Plazas</span>
+                <div className={`pt-6 border-t flex items-center justify-between transition-colors ${theme === 'dark' ? 'border-[#E5E2D9]/10' : 'border-gray-100'}`}>
+                  <div className={`uppercase text-[10px] tracking-widest transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>
+                    Total: <span className="text-[#C4A484] ml-2 font-bold">{manualSaleForm.tickets.adult + manualSaleForm.tickets.reduced + manualSaleForm.tickets.childFree} Plazas</span>
                   </div>
                   <button 
                     type="submit"
-                    className="px-8 py-3 bg-[#C4A484] text-[#0D0D0B] text-xs font-bold uppercase tracking-widest hover:bg-[#E5E2D9] transition-colors"
+                    className="px-8 py-3 bg-[#C4A484] text-[#0D0D0B] text-xs font-bold uppercase tracking-widest hover:bg-[#A68B6E] hover:text-white transition-all shadow-md"
                   >
                     Confirmar Venta
                   </button>
