@@ -72,44 +72,87 @@ export default function AdminApp() {
   };
 
   // Status Badge Helper
-  const StatusBadge = ({ r }: { r: any }) => (
-    <div className="flex items-center gap-1">
-      <span className={`px-2 py-1 text-[10px] uppercase tracking-wider transition-colors flex items-center gap-1.5 ${
-        r.status === 'confirmed' 
-          ? theme === 'dark' ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-50 text-emerald-700'
-        : r.status === 'paid'
-          ? theme === 'dark' 
-            ? 'bg-cyan-900/40 text-cyan-300 border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.2)]' 
-            : 'bg-cyan-50 text-cyan-700 border border-cyan-200 shadow-sm'
-          : r.status === 'pending'
-            ? theme === 'dark' 
-              ? 'bg-amber-900/40 text-amber-300 shadow-[0_0_8px_rgba(217,119,6,0.3)] animate-pulse' 
-              : 'bg-amber-50 text-amber-700 border border-amber-200 animate-pulse'
-            : theme === 'dark' ? 'bg-red-900/40 text-red-300' : 'bg-red-50 text-red-700'
-      }`}>
-        {r.status === 'paid' ? '💰 Pagado' : 
-         r.status === 'confirmed' ? '✅ Confirmado' : 
-         r.status === 'pending' ? '⏳ Pendiente' : 
-         r.status === 'cancelled' ? '🚫 Anulada' : '❌ Fallido'}
-      </span>
-      {r.status === 'pending' && (
-        <button 
-          onClick={(e) => {
-            e.stopPropagation();
-            handleAbandonedCartMail(r);
-          }}
-          className={`p-1 rounded-full transition-all border ${
-            theme === 'dark' 
-              ? 'bg-[#1A1A1A] border-[#C4A484]/40 text-[#C4A484] hover:bg-[#C4A484]/20' 
-              : 'bg-white border-amber-200 text-amber-600 hover:bg-amber-50'
-          }`}
-          title="Enviar Recordatorio (Carrito Abandonado)"
-        >
-          <Mail className="w-3 h-3" />
-        </button>
-      )}
-    </div>
-  );
+  const StatusBadge = ({ r }: { r: any }) => {
+    const [timeLeft, setTimeLeft] = useState<string | null>(null);
+    const [isUrgent, setIsUrgent] = useState(false);
+
+    useEffect(() => {
+      if (r.status !== 'pending' || !r.createdAt) {
+        setTimeLeft(null);
+        return;
+      }
+
+      const interval = setInterval(() => {
+        const created = new Date(r.createdAt).getTime();
+        const now = new Date().getTime();
+        const limit = created + (60 * 60 * 1000);
+        const diff = limit - now;
+
+        if (diff <= 0) {
+          setTimeLeft("00:00");
+          clearInterval(interval);
+          return;
+        }
+
+        const mins = Math.floor(diff / 60000);
+        const secs = Math.floor((diff % 60000) / 1000);
+        
+        if (mins < 5) setIsUrgent(true);
+        setTimeLeft(`${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`);
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }, [r.status, r.createdAt]);
+
+    return (
+      <div className="flex flex-col gap-1 items-start">
+        <div className="flex items-center gap-1">
+          <span className={`px-2 py-1 text-[10px] uppercase tracking-wider transition-colors flex items-center gap-1.5 ${
+            r.status === 'confirmed' 
+              ? theme === 'dark' ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-50 text-emerald-700'
+            : r.status === 'paid'
+              ? theme === 'dark' 
+                ? 'bg-cyan-900/40 text-cyan-300 border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.2)]' 
+                : 'bg-cyan-50 text-cyan-700 border border-cyan-200 shadow-sm'
+              : r.status === 'pending'
+                ? theme === 'dark' 
+                  ? 'bg-amber-900/40 text-amber-300 shadow-[0_0_8px_rgba(217,119,6,0.3)]' 
+                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+                : theme === 'dark' ? 'bg-red-900/40 text-red-300' : 'bg-red-50 text-red-700'
+          }`}>
+            {r.status === 'paid' ? '💰 Pagado' : 
+             r.status === 'confirmed' ? '✅ Confirmado' : 
+             r.status === 'pending' ? '⏳ Pendiente' : 
+             r.status === 'cancelled' ? '🚫 Anulada' : '❌ Fallido'}
+          </span>
+          {r.status === 'pending' && (
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleAbandonedCartMail(r);
+              }}
+              className={`p-1 rounded-full transition-all border ${
+                theme === 'dark' 
+                  ? 'bg-[#1A1A1A] border-[#C4A484]/40 text-[#C4A484] hover:bg-[#C4A484]/20' 
+                  : 'bg-white border-amber-200 text-amber-600 hover:bg-amber-50'
+              }`}
+              title="Enviar Recordatorio (Carrito Abandonado)"
+            >
+              <Mail className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+        {timeLeft && (
+          <div className={`text-[9px] font-mono font-bold tracking-widest flex items-center gap-1 px-1 ${
+            isUrgent ? 'text-red-500 animate-pulse' : 'text-amber-500/70'
+          }`}>
+            <Clock className="w-2.5 h-2.5" />
+            EXPIRA EN {timeLeft}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   // Action Buttons Helper
   const ActionButtons = ({ r }: { r: any }) => (
@@ -258,6 +301,51 @@ export default function AdminApp() {
       alert("Error al anular: " + (e as Error).message);
     }
   };
+
+  // AUTO-CLEANUP DE CARRITOS ABANDONADOS (> 60 MIN)
+  const cleanupExpiredPending = async (reservations: any[]) => {
+    const now = new Date();
+    const expired = reservations.filter(r => {
+      if (r.status !== 'pending' || !r.createdAt) return false;
+      const created = new Date(r.createdAt);
+      const diffMs = now.getTime() - created.getTime();
+      return diffMs > 60 * 60 * 1000; // 60 minutos
+    });
+
+    if (expired.length === 0) return;
+
+    console.log(`🧹 Iniciando limpieza de ${expired.length} carritos abandonados...`);
+
+    for (const res of expired) {
+      try {
+        // 1. Liberar aforo
+        const slotId = `${res.date}_${res.time}`;
+        const slotRef = doc(db, 'slots', slotId);
+        
+        let ticketsToRelease = Number(res.totalTickets || 0);
+        if (!ticketsToRelease && res.tickets) {
+          ticketsToRelease = Number(res.tickets.adult || 0) + Number(res.tickets.reduced || 0) + Number(res.tickets.childFree || 0);
+        }
+
+        if (ticketsToRelease > 0) {
+          await setDoc(slotRef, { 
+            bookedCount: increment(-ticketsToRelease)
+          }, { merge: true });
+        }
+
+        // 2. Anular
+        await updateDoc(doc(db, 'reservations', res.id), {
+          status: 'cancelled',
+          autoCancelled: true,
+          cancelledAt: now.toISOString(),
+          updatedAt: now.toISOString(),
+          notes: 'Anulada automáticamente por exceder 60 min en espera.'
+        });
+      } catch (err) {
+        console.error(`Error en auto-cleanup de ${res.id}:`, err);
+      }
+    }
+  };
   // Modal states
   const [isManualSaleOpen, setIsManualSaleOpen] = useState(false);
   const [manualSaleForm, setManualSaleForm] = useState({
@@ -369,6 +457,9 @@ export default function AdminApp() {
       const snap = await getDocs(q);
       const res = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setAllReservations(res);
+      
+      // Lanzar limpieza de expirados
+      cleanupExpiredPending(res);
     } catch (e) {
       console.error(e);
     } finally {
