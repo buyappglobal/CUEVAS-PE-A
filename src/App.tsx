@@ -943,9 +943,22 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center justify-between mb-6">
                 <span className="text-sm uppercase tracking-widest text-[#E5E2D9]/70">Total a Pagar</span>
                 <span className="text-3xl font-serif text-[#C4A484]">{totalPrice.toFixed(2)}€</span>
+              </div>
+
+              {/* Información de Seguridad y Tiempos */}
+              <div className="bg-[#C4A484]/10 border border-[#C4A484]/30 p-4 rounded-lg flex gap-3 animate-pulse mb-8">
+                <AlertCircle className="w-5 h-5 text-[#C4A484] shrink-0" />
+                <div className="space-y-1">
+                  <p className="text-[10px] leading-relaxed text-[#E5E2D9]/90 italic uppercase tracking-widest font-bold">
+                    Aviso importante de seguridad
+                  </p>
+                  <p className="text-[9px] leading-relaxed text-[#E5E2D9]/70 uppercase tracking-wider">
+                    La validación de su reserva no es instantánea por protocolos de seguridad de red. Una vez completado el pago, el proceso puede demorar hasta <span className="text-[#C4A484]">60 minutos</span>. Por favor, esté atento a su correo electrónico tras finalizar la transacción.
+                  </p>
+                </div>
               </div>
 
               <button 
