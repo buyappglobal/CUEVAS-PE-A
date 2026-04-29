@@ -60,6 +60,9 @@ export default function AdminApp() {
     const body = encodeURIComponent(
       `Hola ${r.customerName},\n\n` +
       `Hemos visto que tienes una reserva pendiente para visitar las Cuevas de la Peña de Arias Montano el día ${r.date} a las ${r.time}.\n\n` +
+      `Detalles de la reserva seleccionada:\n` +
+      `- Localizador: #${r.localizador}\n` +
+      `- Entradas: ${r.totalTickets} (Adultos: ${r.tickets?.adult || 0}, Reducidas: ${r.tickets?.reduced || 0}, Niños gratis: ${r.tickets?.childFree || 0})\n\n` +
       `Si has tenido algún problema con el pago o quieres que te ayudemos a finalizarla, no dudes en responder a este correo.\n\n` +
       `¡Esperamos verte pronto por Alájar!\n\n` +
       `Saludos,\n` +
@@ -435,6 +438,7 @@ export default function AdminApp() {
       `Nombre a cargo de la reserva: ${r.customerName}\n\n` +
       `Número de pedido: ${r.localizador}\n\n` +
       `Fecha y hora de la visita: ${r.date} a las ${r.time}\n\n` +
+      `Nº de entradas: ${r.totalTickets} (Adultos: ${r.tickets?.adult || 0}, Reducidas: ${r.tickets?.reduced || 0}, Niños gratis: ${r.tickets?.childFree || 0})\n\n` +
       `📌 Información importante para tu visita:\n` +
       `Entradas: No es necesario que imprimas este correo. Puedes mostrar este mismo email desde tu teléfono móvil en la taquilla al llegar.\n\n` +
       `Puntualidad: Te recomendamos llegar al menos 15 minutos antes de la hora de tu visita para poder validar tu entrada sin prisas.\n\n` +
