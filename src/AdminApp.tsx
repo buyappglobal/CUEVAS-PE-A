@@ -675,7 +675,7 @@ export default function AdminApp() {
     
     // Add title
     doc.setFontSize(18);
-    doc.text('Informe de Reservas - Monumento Natural Caminito del Rey', 14, 22);
+    doc.text('Informe de Reservas - Monumento Natural Cuevas de Alájar', 14, 22);
     doc.setFontSize(11);
     doc.setTextColor(100);
     doc.text(`Rango: ${reportStartDate} hasta ${reportEndDate} (Filtrado por ${reportFilterType === 'visit' ? 'Día de Visita' : 'Día de Compra'})`, 14, 30);
