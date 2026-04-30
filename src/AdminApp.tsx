@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { db, auth, loginWithGoogle, loginWithEmail, logout } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, query, getDocs, doc, getDoc, setDoc, updateDoc, increment, where, onSnapshot, deleteDoc } from 'firebase/firestore';
-import { Calendar, Clock, Ticket, Users, FileText, CheckCircle, Plus, LogOut, Mountain, X, RefreshCw, Info, Ban, AlertCircle, Copy, Mail, Sun, Moon } from 'lucide-react';
+import { Calendar, Clock, Ticket, Users, FileText, CheckCircle, Plus, LogOut, Mountain, X, RefreshCw, Info, Ban, AlertCircle, Copy, Mail, Sun, Moon, Globe } from 'lucide-react';
 import { motion } from 'motion/react';
+import { translations } from './translations';
 
 export default function AdminApp() {
   const [user, setUser] = useState<User | null>(null);
@@ -28,6 +29,29 @@ export default function AdminApp() {
     const saved = localStorage.getItem('crm-theme');
     return (saved as 'dark' | 'light') || 'dark';
   });
+  const [lang, setLang] = useState<'es' | 'en'>(() => {
+    const saved = localStorage.getItem('crm-lang');
+    return (saved as 'es' | 'en') || 'es';
+  });
+
+  const t = (path: string) => {
+    const keys = path.split('.');
+    let result: any = translations[lang];
+    for (const key of keys) {
+      if (result && result[key]) {
+        result = result[key];
+      } else {
+        return path;
+      }
+    }
+    return result;
+  };
+
+  const toggleLang = () => {
+    const newLang = lang === 'es' ? 'en' : 'es';
+    setLang(newLang);
+    localStorage.setItem('crm-lang', newLang);
+  };
 
   const toggleTheme = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
@@ -701,6 +725,20 @@ export default function AdminApp() {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Language Selector */}
+          <button 
+            onClick={toggleLang}
+            className={`px-4 py-2 rounded-full border transition-all flex items-center gap-2 shadow-md relative z-50 ${
+              theme === 'dark' 
+                ? 'bg-[#1A1A1A] border-[#C4A484]/40 text-[#C4A484] hover:bg-[#C4A484]/10' 
+                : 'bg-white border-gray-300 text-[#C4A484] hover:bg-gray-50'
+            }`}
+            title={lang === 'es' ? 'Switch to English' : 'Pasar a Español'}
+          >
+            <Globe className="w-5 h-5" />
+            <span className="text-[10px] font-black uppercase tracking-widest">{lang === 'es' ? 'ES' : 'EN'}</span>
+          </button>
+
           <button 
             onClick={toggleTheme}
             className={`px-4 py-2 rounded-full border transition-all flex items-center gap-2 shadow-md relative z-50 ${
@@ -842,12 +880,12 @@ export default function AdminApp() {
                       ? 'bg-[#C4A484]/20 text-[#C4A484]' 
                       : 'bg-[#C4A484]/10 text-[#C4A484]'
                 }`}>
-                  {capacities[slot].remaining} Libres
+                  {capacities[slot].remaining} {t('booking.freeSlots')}
                 </span>
               </div>
               <div className="flex items-end gap-2 relative z-10">
                 <span className="text-4xl font-light">{capacities[slot].booked}</span>
-                <span className={`mb-1 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/50' : 'text-gray-400'}`}>/ 30 ocupadas</span>
+                <span className={`mb-1 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/50' : 'text-gray-400'}`}>/ 30 {t('booking.booked')}</span>
               </div>
               {/* Progress bar background */}
               <div 

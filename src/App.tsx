@@ -11,8 +11,9 @@ import { Gallery } from './components/Gallery';
 import { 
   MapPin, Calendar, Ticket, ChevronRight, Mountain, 
   Leaf, History, Utensils, ArrowRight, Clock, Users, X, Info, Camera, Tent,
-  CheckCircle, AlertCircle, User, Mail, Phone, FileText, Download, Share2
+  CheckCircle, AlertCircle, User, Mail, Phone, FileText, Download, Share2, Globe
 } from 'lucide-react';
+import { translations } from './translations';
 
 const FadeIn = ({ children, delay = 0, ...props }: { children: React.ReactNode, delay?: number, key?: React.Key }) => (
   <motion.div
@@ -37,6 +38,20 @@ export default function App() {
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isFullOrdinanceOpen, setIsFullOrdinanceOpen] = useState(false);
   const [selectedTour, setSelectedTour] = useState('');
+  const [lang, setLang] = useState<'es' | 'en'>('es');
+  
+  const t = (path: string) => {
+    const keys = path.split('.');
+    let result: any = translations[lang];
+    for (const key of keys) {
+      if (result && result[key]) {
+        result = result[key];
+      } else {
+        return path;
+      }
+    }
+    return result;
+  };
   
   // Modal states for dynamic price calc
   const [date, setDate] = useState('');
@@ -353,19 +368,37 @@ export default function App() {
           
           <div className="flex items-center gap-4 md:gap-8">
             <div className="hidden md:flex items-center gap-8 text-[11px] uppercase tracking-[0.15em] font-medium text-[#E5E2D9]/70">
-              <a href="#descubre" className="hover:text-[#E5E2D9] transition-colors">Las Cuevas</a>
-              <a href="#galeria" className="hover:text-[#E5E2D9] transition-colors">Galería</a>
-              <a href="#visitas" className="hover:text-[#E5E2D9] transition-colors">Visitas y Tarifas</a>
-              <a href="#alajar" className="hover:text-[#E5E2D9] transition-colors">Descubre Alájar</a>
+              <a href="#descubre" className="hover:text-[#E5E2D9] transition-colors">{t('nav.caves')}</a>
+              <a href="#galeria" className="hover:text-[#E5E2D9] transition-colors">{t('nav.gallery')}</a>
+              <a href="#visitas" className="hover:text-[#E5E2D9] transition-colors">{t('nav.visits')}</a>
+              <a href="#alajar" className="hover:text-[#E5E2D9] transition-colors">{t('nav.alajar')}</a>
             </div>
             
             <div className="flex items-center gap-4 md:gap-6 md:border-l md:border-[#E5E2D9]/10 md:pl-6">
+              {/* Language Selector */}
+              <div className="flex items-center gap-2 mr-2">
+                <Globe className="w-4 h-4 text-[#C4A484]/60" />
+                <button 
+                  onClick={() => setLang('es')}
+                  className={`text-[10px] font-bold transition-colors ${lang === 'es' ? 'text-[#C4A484]' : 'text-[#E5E2D9]/40 hover:text-[#E5E2D9]'}`}
+                >
+                  ES
+                </button>
+                <span className="text-[#E5E2D9]/20 text-[10px]">|</span>
+                <button 
+                  onClick={() => setLang('en')}
+                  className={`text-[10px] font-bold transition-colors ${lang === 'en' ? 'text-[#C4A484]' : 'text-[#E5E2D9]/40 hover:text-[#E5E2D9]'}`}
+                >
+                  EN
+                </button>
+              </div>
+
               <motion.button 
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={handleShare}
                 className="text-[#C4A484] hover:text-[#E5E2D9] transition-colors p-2"
-                title="Compartir web"
+                title={lang === 'es' ? 'Compartir web' : 'Share website'}
               >
                 <Share2 className="w-5 h-5 md:w-4 md:h-4" />
               </motion.button>
@@ -373,7 +406,7 @@ export default function App() {
                 onClick={() => openBooking()} 
                 className="hidden sm:block text-[#C4A484] hover:opacity-100 opacity-80 font-bold transition-opacity text-[11px] uppercase tracking-[0.15em]"
               >
-                Solicitar Reserva
+                {t('nav.request')}
               </button>
             </div>
           </div>
@@ -381,16 +414,38 @@ export default function App() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-20 h-[90vh] min-h-[600px] flex items-center justify-center">
-        <div className="absolute inset-0 z-0 overflow-hidden">
-          <img 
-            src="https://solonet.es/wp-content/uploads/2026/04/DSC08546-scaled.jpg" 
-            alt="Interior de las Cuevas" 
-            className="w-full h-full object-cover opacity-85"
-            referrerPolicy="no-referrer"
+      <section className="relative pt-20 h-[90vh] min-h-[600px] flex items-center justify-center bg-[#0D0D0B] overflow-hidden">
+        <div className="absolute inset-0 z-0">
+          <motion.div 
+            initial={{ scale: 1.05, opacity: 0 }}
+            animate={{ 
+              scale: 1.15,
+              opacity: 1,
+              transition: { 
+                scale: { duration: 12, ease: "easeOut" },
+                opacity: { duration: 2.5, ease: "linear" }
+              }
+            }}
+            className="w-full h-full"
+          >
+            <img 
+              src="https://solonet.es/wp-content/uploads/2026/04/DSC08546-scaled.jpg" 
+              alt="Interior de las Cuevas" 
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          </motion.div>
+          {/* Capa de Profundidad - Se aclara gradualmente para ganar mucha más luz */}
+          <motion.div 
+            initial={{ opacity: 0.98 }}
+            animate={{ opacity: 0.35 }}
+            transition={{ duration: 7, ease: "easeInOut" }}
+            className="absolute inset-0 bg-[#0D0D0B] pointer-events-none"
           />
-          <div className="absolute inset-0 bg-[#0D0D0B]/30"></div>
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0D0D0B] via-[#0D0D0B]/20 to-transparent"></div>
+          {/* Viñeta radial mucho más suave para no oscurecer el centro */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_35%,#0D0D0B_100%)] opacity-50 pointer-events-none"></div>
+          {/* Gradiente inferior muy sutil para legibilidad de textos */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0D0D0B] via-[#0D0D0B]/20 to-transparent pointer-events-none"></div>
         </div>
         
         <div className="relative z-10 text-center px-6 max-w-4xl mx-auto mt-12">
@@ -400,7 +455,7 @@ export default function App() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="text-[#C4A484] uppercase tracking-[0.3em] text-[12px] font-medium mb-6"
           >
-            Apertura al Público · Sierra de Huelva
+            {t('hero.location')}
           </motion.p>
           <motion.h1 
             initial={{ opacity: 0, scale: 0.95 }}
@@ -408,8 +463,8 @@ export default function App() {
             transition={{ duration: 1, delay: 0.4, ease: "easeOut" }}
             className="text-5xl md:text-7xl lg:text-[80px] font-serif text-[#E5E2D9] leading-[1.1] mb-8 font-light"
           >
-            Adéntrate en el <br className="hidden md:block"/>
-            <span className="text-[#C4A484]">mundo subterráneo</span>
+            {t('hero.title1')} <br className="hidden md:block"/>
+            <span className="text-[#C4A484]">{t('hero.title2')}</span>
           </motion.h1>
           <motion.p 
             initial={{ opacity: 0, y: 10 }}
@@ -417,7 +472,7 @@ export default function App() {
             transition={{ duration: 0.8, delay: 0.6 }}
             className="text-[18px] text-[#E5E2D9]/80 mb-10 max-w-2xl mx-auto font-light leading-[1.6]"
           >
-            Tras años de cuidadosa adaptación para proteger su entorno, las históricas cuevas de la Peña de Arias Montano abren sus puertas al visitante.
+            {t('hero.desc')}
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -426,10 +481,10 @@ export default function App() {
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
           >
             <button onClick={() => openBooking()} className="px-8 py-4 bg-[#C4A484] text-[#0D0D0B] rounded-none text-[12px] uppercase font-bold tracking-[0.1em] hover:bg-[#b09376] transition-all w-full sm:w-auto">
-              Solicitar Reserva
+              {t('hero.cta')}
             </button>
             <a href="#descubre" className="px-8 py-4 bg-transparent border border-[#E5E2D9]/30 text-[#E5E2D9] rounded-none uppercase text-[12px] font-bold tracking-[0.1em] hover:bg-[#E5E2D9]/5 transition-all w-full sm:w-auto flex justify-center items-center gap-2">
-              Descubrir las cuevas <ChevronRight className="w-4 h-4" />
+              {t('hero.discover')} <ChevronRight className="w-4 h-4" />
             </a>
           </motion.div>
         </div>
@@ -440,10 +495,10 @@ export default function App() {
         <div className="grid lg:grid-cols-2 gap-16 items-center">
           <div>
             <h2 className="text-4xl md:text-5xl font-serif mb-6 leading-[1.1] font-light">
-              Explora las entrañas de la <span className="text-[#C4A484]">Peña Monumental</span>.
+              {t('intro.title')} <span className="text-[#C4A484]">{t('intro.titleAccent')}</span>.
             </h2>
             <p className="text-[18px] text-[#E5E2D9]/60 mb-8 leading-[1.6]">
-              Por primera vez, las espectaculares galerías subterráneas de la Peña de Arias Montano están accesibles al público. Un recorrido acondicionado meticulosamente permite maravillar a los visitantes con un paisaje kárstico subterráneo de estalactitas, estalagmitas y columnas calcáreas de excepcional valor.
+              {t('intro.text')}
             </p>
             
             <div className="grid sm:grid-cols-2 gap-8">
@@ -452,8 +507,8 @@ export default function App() {
                   <Mountain className="w-6 h-6 text-[#C4A484]" />
                 </div>
                 <div>
-                  <h3 className="font-serif text-xl mb-2 text-[#E5E2D9]">Sima de los caballos</h3>
-                  <p className="text-sm text-[#E5E2D9]/60 leading-[1.6]">Una impresionante cavidad vertical donde se pueden apreciar caprichosas formas geológicas.</p>
+                  <h3 className="font-serif text-xl mb-2 text-[#E5E2D9]">{t('intro.cave1')}</h3>
+                  <p className="text-sm text-[#E5E2D9]/60 leading-[1.6]">{t('intro.cave1Desc')}</p>
                 </div>
               </div>
               <div className="flex gap-4">
@@ -461,8 +516,8 @@ export default function App() {
                   <History className="w-6 h-6 text-[#C4A484]" />
                 </div>
                 <div>
-                  <h3 className="font-serif text-xl mb-2 text-[#E5E2D9]">Palacio Oscuro</h3>
-                  <p className="text-sm text-[#E5E2D9]/60 leading-[1.6]">Un recóndito pasaje que revela vestigios y el misticismo del baluarte rocoso que enamoró a Arias Montano.</p>
+                  <h3 className="font-serif text-xl mb-2 text-[#E5E2D9]">{t('intro.cave2')}</h3>
+                  <p className="text-sm text-[#E5E2D9]/60 leading-[1.6]">{t('intro.cave2Desc')}</p>
                 </div>
               </div>
               <div className="flex gap-4">
@@ -470,8 +525,8 @@ export default function App() {
                   <Mountain className="w-6 h-6 text-[#C4A484]" />
                 </div>
                 <div>
-                  <h3 className="font-serif text-xl mb-2 text-[#E5E2D9]">Sillita del rey</h3>
-                  <p className="text-sm text-[#E5E2D9]/60 leading-[1.6]">Formación emblemática esculpida por el tiempo, testimonio del legado histórico de la Peña.</p>
+                  <h3 className="font-serif text-xl mb-2 text-[#E5E2D9]">{t('intro.cave3')}</h3>
+                  <p className="text-sm text-[#E5E2D9]/60 leading-[1.6]">{t('intro.cave3Desc')}</p>
                 </div>
               </div>
             </div>
@@ -488,21 +543,21 @@ export default function App() {
             </div>
             {/* Context Badge */}
             <div className="absolute -bottom-8 -left-8 bg-[#0D0D0B] border border-[#E5E2D9]/10 p-6 rounded-none shadow-2xl max-w-xs hidden sm:block">
-              <p className="font-serif text-lg leading-snug">"Un viaje al pasado geológico, donde el agua y el tiempo esculpieron la roca."</p>
+              <p className="font-serif text-lg leading-snug">"{t('intro.quote')}"</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Gallery Section */}
-      <Gallery />
+      <Gallery lang={lang} />
 
       {/* Visitas Guiadas */}
       <section id="visitas" className="py-24 bg-[#0D0D0B] border-t border-[#E5E2D9]/10">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center max-w-2xl mx-auto mb-16">
-            <h2 className="text-4xl md:text-[64px] font-serif mb-6 font-light leading-[1.1]">Tarifas y Entradas</h2>
-            <p className="text-[#E5E2D9]/60 text-lg">Asegura tu plaza. El aforo al interior de las cuevas está estrictamente limitado para la conservación del espacio geológico.</p>
+            <h2 className="text-4xl md:text-[64px] font-serif mb-6 font-light leading-[1.1]">{t('pricing.title')}</h2>
+            <p className="text-[#E5E2D9]/60 text-lg">{t('pricing.subtitle')}</p>
           </div>
           
           <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
@@ -514,17 +569,17 @@ export default function App() {
                     <Ticket className="w-5 h-5 text-[#C4A484]" />
                   </div>
                 </div>
-                <h3 className="font-serif text-3xl mb-4 text-[#E5E2D9]">Entrada General y Reducida</h3>
+                <h3 className="font-serif text-3xl mb-4 text-[#E5E2D9]">{t('pricing.card1.title')}</h3>
                 <p className="text-[#E5E2D9]/60 text-sm leading-[1.6] mb-8 flex-grow">
-                  Acceso a las cuevas acondicionadas. Tarifa general desde 10€. Tarifa reducida (desde 8€) disponible para mayores de 65, tarjeta Andalucía Junta 65, diversidad funcional, Carnet Joven y niños (4-12 años). Formato gratuito para menores de 4. <br/><br/>
-                  <span className="italic text-[11px]">* Los fines de semana y festivos se aplica un suplemento de +2€. Descuento temporal (-2€) aplicado en temporada de reposo de murciélagos.</span>
+                  {t('pricing.card1.desc')} <br/><br/>
+                  <span className="italic text-[11px]">{t('pricing.card1.note')}</span>
                 </p>
                 <div className="flex items-center justify-between mt-auto pt-6 border-t border-[#E5E2D9]/10">
                   <div className="flex flex-col">
-                    <span className="text-3xl font-serif text-[#E5E2D9]">Desde 8€</span>
+                    <span className="text-3xl font-serif text-[#E5E2D9]">{t('pricing.card1.from')}</span>
                   </div>
-                  <button onClick={() => openBooking('Visita Guidada a las Cuevas')} className="py-3 px-6 bg-[#E5E2D9]/5 hover:bg-[#C4A484] hover:text-[#0D0D0B] text-[#C4A484] flex items-center gap-2 text-[11px] uppercase tracking-[0.1em] font-bold transition-colors">
-                    Solicitar Reserva
+                  <button onClick={() => openBooking(lang === 'es' ? 'Visita Guidada a las Cuevas' : 'Guided Tour to the Caves')} className="py-3 px-6 bg-[#E5E2D9]/5 hover:bg-[#C4A484] hover:text-[#0D0D0B] text-[#C4A484] flex items-center gap-2 text-[11px] uppercase tracking-[0.1em] font-bold transition-colors">
+                    {t('nav.request')}
                   </button>
                 </div>
               </div>
@@ -532,20 +587,20 @@ export default function App() {
 
             {/* Tarjeta 2 */}
             <FadeIn delay={0.2}>
-              <div className="bg-[#E5E2D9]/[0.02] border border-[#E5E2D9]/[0.05] hover:border-[#C4A484]/50 transition-colors group h-full flex flex-col p-8 md:p-10 rounded-none">
+              <div className="bg-[#E5E2D9]/[0.02] border border-[#E5E2D9]/[0.05] hover:border-[#C4A484]/50 transition-colors group h-full flex flex-col p-8 md:p-10 rounded-none relative overflow-hidden">
                 <div className="mb-6 flex justify-between items-start">
                   <div className="bg-[#0D0D0B] border border-[#E5E2D9]/10 w-12 h-12 rounded-none flex items-center justify-center">
                     <Users className="w-5 h-5 text-[#C4A484]" />
                   </div>
-                  <span className="text-[10px] uppercase tracking-[0.1em] font-medium text-[#C4A484]">Grupos +20 pax</span>
+                  <span className="text-[10px] uppercase tracking-[0.1em] font-medium text-[#C4A484]">{t('pricing.card2.tag')}</span>
                 </div>
-                <h3 className="font-serif text-3xl mb-4 text-[#E5E2D9]">Grupos y Colegios</h3>
+                <h3 className="font-serif text-3xl mb-4 text-[#E5E2D9]">{t('pricing.card2.title')}</h3>
                 <p className="text-[#E5E2D9]/60 text-sm leading-[1.6] mb-8 flex-grow">
-                  Experiencia adaptada para agrupaciones, escuelas y empresas de turismo con convenio. Reserva de franjas horarias exclusivas y tarifa reducida en bloque para grupos de más de 20 estudiantes. (Es obligatoria la reserva previa por parte del Centro o AMPA).
+                  {t('pricing.card2.desc')}
                 </p>
                 <div className="flex flex-col items-center justify-center mt-auto pt-6 border-t border-[#E5E2D9]/10 text-center gap-1">
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-[#C4A484] mb-1 font-bold">Solicitar Reserva</span>
-                  <span className="text-[#E5E2D9] text-base font-serif lowercase tracking-wide">info@cuevasdealajar.com</span>
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-[#C4A484] mb-1 font-bold">{t('pricing.card2.cta')}</span>
+                  <span className="text-[#E5E2D9] text-base font-serif lowercase tracking-wide">{t('pricing.card2.contact')}</span>
                   <span className="text-[#E5E2D9] text-base font-serif tracking-wide">671 844 875</span>
                 </div>
               </div>
@@ -560,17 +615,11 @@ export default function App() {
               <div className="relative z-10">
                 <h3 className="font-serif text-2xl md:text-3xl mb-8 text-[#E5E2D9] flex items-center gap-4">
                   <Info className="w-6 h-6 text-[#C4A484]" />
-                  ¿Qué incluye las entradas a las cuevas de Alájar?
+                  {t('faq.title')}
                 </h3>
                 
                 <ul className="space-y-6">
-                  {[
-                    "Visita del patrimonio natural e histórico del entorno.",
-                    "Visita al Centro de Interpretación Arias Montano.",
-                    "Visita al Centro de Visitantes (actualmente cerrado por obras de rehabilitación y mejoras).",
-                    "Visita al Santuario de la Reina de los Ángeles.",
-                    "Visita a las Cavidades del entorno: Sillita del Rey, Sima de los Caballos y Palacio Oscuro*. "
-                  ].map((item, idx) => (
+                  {(t('faq.items') as string[]).map((item, idx) => (
                     <li key={idx} className="flex items-start gap-4 text-[#E5E2D9]/70 group">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#C4A484] mt-2 shrink-0 group-hover:scale-125 transition-transform"></span>
                       <span className="text-[15px] md:text-base leading-relaxed">{item}</span>
@@ -580,8 +629,7 @@ export default function App() {
 
                 <div className="mt-12 pt-8 border-t border-[#E5E2D9]/10">
                   <p className="text-[#E5E2D9]/40 italic text-sm leading-relaxed">
-                    <span className="text-[#C4A484] font-bold not-italic mr-1">*Palacio Oscuro:</span> 
-                    dicha cavidad no será visitable entre los periodos comprendidos entre el 30/03 al 30/09. Reducción de 2€ a la entrada.
+                    {t('faq.note')}
                   </p>
                 </div>
               </div>
@@ -595,19 +643,19 @@ export default function App() {
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
           <FadeIn>
             <h2 className="text-4xl md:text-5xl font-serif mb-6 leading-[1.1] font-light italic">
-              Descubre <span className="text-[#C4A484] not-italic font-normal">Alájar</span>
+              {t('alajar.title')} <span className="text-[#C4A484] not-italic font-normal">{t('alajar.accent')}</span>
             </h2>
             <p className="text-[18px] text-[#E5E2D9]/60 mb-8 leading-[1.6]">
-              En el corazón del Parque Natural Sierra de Aracena y Picos de Aroche se encuentra Alájar, uno de los municipios más singulares de la provincia de Huelva. Declarado Conjunto Histórico-Artístico, su trazado medieval y sus fachadas blancas custodiadas por el monumento natural de la Peña de Arias Montano, lo convierten en una parada obligatoria para el viajero.
+              {t('alajar.text')}
             </p>
             <div className="space-y-4 mb-10">
               <div className="flex items-start gap-4">
                 <Leaf className="w-5 h-5 text-[#C4A484] shrink-0 mt-1" />
-                <p className="text-sm text-[#E5E2D9]/70">Senderos naturales y rutas de senderismo de valor excepcional.</p>
+                <p className="text-sm text-[#E5E2D9]/70">{t('alajar.item1')}</p>
               </div>
               <div className="flex items-start gap-4">
                 <Utensils className="w-5 h-5 text-[#C4A484] shrink-0 mt-1" />
-                <p className="text-sm text-[#E5E2D9]/70">Gastronomía tradicional centrada en el ibérico y la micología.</p>
+                <p className="text-sm text-[#E5E2D9]/70">{t('alajar.item2')}</p>
               </div>
             </div>
             
@@ -617,7 +665,7 @@ export default function App() {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-3 px-8 py-4 bg-[#C4A484] text-[#0D0D0B] rounded-none text-[12px] uppercase font-bold tracking-[0.1em] hover:bg-[#b09376] transition-all"
             >
-              Descubre Alájar <ArrowRight className="w-4 h-4" />
+              {t('alajar.cta')} <ArrowRight className="w-4 h-4" />
             </a>
           </FadeIn>
           
@@ -659,16 +707,16 @@ export default function App() {
           </div>
           
           <div>
-            <h4 className="text-[#C4A484] mb-6">Información</h4>
+            <h4 className="text-[#C4A484] mb-6">{t('footer.info')}</h4>
             <ul className="space-y-4 text-[#E5E2D9]/40">
-              <li><a href="https://maps.app.goo.gl/fGMEYWZvqwkUCWcN7" target="_blank" rel="noopener noreferrer" className="hover:text-[#E5E2D9] transition-colors">Cómo llegar</a></li>
-              <li><button onClick={() => setIsNormasModalOpen(true)} className="hover:text-[#E5E2D9] transition-colors text-left uppercase">Normas del recinto</button></li>
-              <li><button onClick={() => setIsAccessModalOpen(true)} className="hover:text-[#E5E2D9] transition-colors text-left uppercase">Accesibilidad</button></li>
+              <li><a href="https://maps.app.goo.gl/fGMEYWZvqwkUCWcN7" target="_blank" rel="noopener noreferrer" className="hover:text-[#E5E2D9] transition-colors">{t('footer.howToGet')}</a></li>
+              <li><button onClick={() => setIsNormasModalOpen(true)} className="hover:text-[#E5E2D9] transition-colors text-left uppercase">{t('footer.rules')}</button></li>
+              <li><button onClick={() => setIsAccessModalOpen(true)} className="hover:text-[#E5E2D9] transition-colors text-left uppercase">{t('footer.access')}</button></li>
             </ul>
           </div>
 
           <div>
-            <h4 className="text-[#C4A484] mb-6">Contacto</h4>
+            <h4 className="text-[#C4A484] mb-6">{t('footer.contact')}</h4>
             <ul className="space-y-4 text-[#E5E2D9]/40">
               <li className="flex items-start gap-3">
                 <MapPin className="w-4 h-4 shrink-0" />
@@ -682,7 +730,7 @@ export default function App() {
                 <Phone className="w-4 h-4 shrink-0 mt-1" />
                 <div className="flex flex-col gap-1">
                   <span className="normal-case text-[12px]">959 12 57 10 / 671 844 875</span>
-                  <span className="text-[10px] text-[#E5E2D9]/30">Horario de Atención telefónica de 9-14 horas</span>
+                  <span className="text-[10px] text-[#E5E2D9]/30">{t('footer.phoneSchedule')}</span>
                 </div>
               </li>
               <li className="flex items-start gap-3">
@@ -696,12 +744,12 @@ export default function App() {
           </div>
         </div>
         <div className="max-w-7xl mx-auto px-6 mt-16 pt-8 border-t border-[#E5E2D9]/10 text-[10px] uppercase tracking-[0.1em] font-bold opacity-80 flex flex-col sm:flex-row justify-between items-center">
-          <p>© {new Date().getFullYear()} Cuevas Peña Arias Montano. Todos los derechos reservados.</p>
+          <p>© {new Date().getFullYear()} Cuevas Peña Arias Montano. {t('footer.rights')}</p>
           <div className="flex gap-4 mt-4 sm:mt-0 items-center">
-            <button onClick={() => setIsLegalModalOpen(true)} className="hover:text-[#E5E2D9] uppercase tracking-[0.1em] font-black border-b border-transparent hover:border-white transition-all">Aviso Legal</button>
-            <button onClick={() => setIsPrivacyModalOpen(true)} className="hover:text-[#E5E2D9] uppercase tracking-[0.1em] font-black border-b border-transparent hover:border-white transition-all">Privacidad</button>
+            <button onClick={() => setIsLegalModalOpen(true)} className="hover:text-[#E5E2D9] uppercase tracking-[0.1em] font-black border-b border-transparent hover:border-white transition-all">{t('footer.legal')}</button>
+            <button onClick={() => setIsPrivacyModalOpen(true)} className="hover:text-[#E5E2D9] uppercase tracking-[0.1em] font-black border-b border-transparent hover:border-white transition-all">{t('footer.privacy')}</button>
             <span className="w-px h-3 bg-[#E5E2D9]/20"></span>
-            <a href="https://www.cuevasdealajar.com/admin" className="text-[#C4A484] hover:text-[#E5E2D9] transition-colors uppercase tracking-[0.1em] font-black">Admin</a>
+            <a href="https://www.cuevasdealajar.com/admin" className="text-[#C4A484] hover:text-[#E5E2D9] transition-colors uppercase tracking-[0.1em] font-black">{t('footer.admin')}</a>
           </div>
         </div>
       </footer>
@@ -729,12 +777,12 @@ export default function App() {
                   <X className="w-4 h-4" />
                 </button>
                 
-                <span className="text-[#C4A484] text-[10px] uppercase tracking-[0.2em] mb-2 block">Reserva de Entradas</span>
-                <h2 className="font-serif text-3xl mb-6 pr-8 font-light">Confirma tu visita</h2>
+                <span className="text-[#C4A484] text-[10px] uppercase tracking-[0.2em] mb-2 block">{t('booking.tag')}</span>
+                <h2 className="font-serif text-3xl mb-6 pr-8 font-light">{t('booking.title')}</h2>
                 
                 <form className="space-y-6" onSubmit={handleContinueToSummary}>
                   <div>
-                    <label className="block text-[10px] uppercase tracking-[0.1em] text-[#E5E2D9]/50 mb-2">Fecha y Horario de Visita</label>
+                    <label className="block text-[10px] uppercase tracking-[0.1em] text-[#E5E2D9]/50 mb-2">{t('booking.dateLabel')}</label>
                     <div className="grid grid-cols-1 gap-4 mb-4">
                       {/* Date */}
                       <div className="relative">
@@ -767,7 +815,7 @@ export default function App() {
                           >
                             <div className="flex items-center gap-2"><Clock className="w-3 h-3" /> {t}</div>
                             <span className="text-[9px] opacity-70 tracking-normal font-normal">
-                              {!isDateAllowed ? 'Cerrado' : isFull ? 'Completo' : `${free} libres`}
+                              {!isDateAllowed ? t('booking.closed') : isFull ? t('booking.full') : `${free} ${t('booking.freeSlots')}`}
                             </span>
                           </button>
                         )})}
@@ -775,34 +823,34 @@ export default function App() {
                     </div>
                     {date && !isSelectableDate(date) && (
                       <p className="text-[10px] text-red-400 mt-2 uppercase tracking-[0.05em] flex items-center gap-1">
-                        <Info className="w-3 h-3" /> {isToday(date) ? "No se realizan ventas online para el mismo día." : "Solo se realizan visitas Sábados, Domingos y Festivos Nacionales."}
+                        <Info className="w-3 h-3" /> {isToday(date) ? t('booking.todayError') : t('booking.allowedError')}
                       </p>
                     )}
                     {date && isSelectableDate(date) && isBatSeason(date) && (
                       <p className="text-[10px] text-[#C4A484] mt-2 uppercase tracking-[0.05em] flex items-center gap-1">
-                        <Info className="w-3 h-3" /> Descuento de temporada aplicado (Cierre Palacio Oscuro).
+                        <Info className="w-3 h-3" /> {t('booking.batSeasonInfo')}
                       </p>
                     )}
                     {date && isSpecialPriceDay && (
                       <p className="text-[10px] text-white/50 mt-2 uppercase tracking-[0.05em] flex items-center gap-1">
-                        <Info className="w-3 h-3" /> Tarifa de fin de semana / festivo aplicada.
+                        <Info className="w-3 h-3" /> {t('booking.specialPriceInfo')}
                       </p>
                     )}
                   </div>
 
                   <div className="space-y-4 pt-2">
                     <div className="flex items-center justify-between border-b border-[#E5E2D9]/10 pb-2 mb-4">
-                      <label className="block text-[10px] uppercase tracking-[0.1em] text-[#E5E2D9]/50">Selección de Entradas</label>
+                      <label className="block text-[10px] uppercase tracking-[0.1em] text-[#E5E2D9]/50">{t('booking.selectionTitle')}</label>
                       <span className={`text-[10px] uppercase tracking-[0.1em] font-medium ${remainingCapacity - totalSelectedTickets === 0 ? 'text-red-400' : 'text-[#C4A484]'}`}>
-                        {remainingCapacity - totalSelectedTickets} restantes de {remainingCapacity} disponibles
+                        {remainingCapacity - totalSelectedTickets} {t('booking.remaining')} {remainingCapacity} {t('booking.available')}
                       </span>
                     </div>
                     
                     {/* Adult Entry */}
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-[#E5E2D9] text-sm font-serif">Adulto General</p>
-                        <p className="text-[10px] text-[#E5E2D9]/50">{finalAdultPrice}€ por persona</p>
+                        <p className="text-[#E5E2D9] text-sm font-serif">{t('booking.adult')}</p>
+                        <p className="text-[10px] text-[#E5E2D9]/50">{finalAdultPrice}€ {t('booking.person')}</p>
                       </div>
                       <div className="flex items-center gap-3 bg-[#E5E2D9]/5 border border-[#E5E2D9]/10 p-1">
                         <button type="button" onClick={() => updateTicket('adult', -1)} className="w-8 h-8 flex items-center justify-center text-[#E5E2D9]/50 hover:text-[#C4A484]">-</button>
@@ -814,8 +862,8 @@ export default function App() {
                     {/* Reduced Entry */}
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-[#E5E2D9] text-sm font-serif">Entrada Reducida <span className="text-[#C4A484]">*</span></p>
-                        <p className="text-[10px] text-[#E5E2D9]/50">{finalReducedPrice}€ por persona</p>
+                        <p className="text-[#E5E2D9] text-sm font-serif">{t('booking.reduced')} <span className="text-[#C4A484]">*</span></p>
+                        <p className="text-[10px] text-[#E5E2D9]/50">{finalReducedPrice}€ {t('booking.person')}</p>
                       </div>
                       <div className="flex items-center gap-3 bg-[#E5E2D9]/5 border border-[#E5E2D9]/10 p-1">
                         <button type="button" onClick={() => updateTicket('reduced', -1)} className="w-8 h-8 flex items-center justify-center text-[#E5E2D9]/50 hover:text-[#C4A484]">-</button>
@@ -827,8 +875,8 @@ export default function App() {
                     {/* Infant Entry */}
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-[#E5E2D9] text-sm font-serif">Menores de 4 años</p>
-                        <p className="text-[10px] text-[#E5E2D9]/50">Gratis (acompañados)</p>
+                        <p className="text-[#E5E2D9] text-sm font-serif">{t('booking.infant')}</p>
+                        <p className="text-[10px] text-[#E5E2D9]/50">{t('booking.infantDesc')}</p>
                       </div>
                       <div className="flex items-center gap-3 bg-[#E5E2D9]/5 border border-[#E5E2D9]/10 p-1">
                         <button type="button" onClick={() => updateTicket('childFree', -1)} className="w-8 h-8 flex items-center justify-center text-[#E5E2D9]/50 hover:text-[#C4A484]">-</button>
@@ -837,18 +885,18 @@ export default function App() {
                       </div>
                     </div>
                     <p className="text-[9px] text-[#E5E2D9]/40 mt-4 mb-8 leading-relaxed">
-                      * Tarifa reducida válida para: Mayores de 65 años, tarjeta «Andalucía Junta 65», discapacidad &gt; 33%, Carnet Joven y niños de 4 a 12 años. Se requerirá acreditación en el acceso.
+                      {t('booking.reducedDisclaimer')}
                     </p>
                   </div>
 
                   <div className="space-y-4 pt-2">
-                    <label className="block text-[10px] uppercase tracking-[0.1em] text-[#E5E2D9]/50 mb-4 border-b border-[#E5E2D9]/10 pb-2">Datos Personales</label>
+                    <label className="block text-[10px] uppercase tracking-[0.1em] text-[#E5E2D9]/50 mb-4 border-b border-[#E5E2D9]/10 pb-2">{t('booking.personalData')}</label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="relative">
                         <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#C4A484]" />
                         <input 
                           type="text" 
-                          placeholder="Nombre y apellidos" 
+                          placeholder={t('booking.namePlaceholder')}
                           required 
                           value={customerName} 
                           onChange={e => setCustomerName(e.target.value)} 
@@ -859,7 +907,7 @@ export default function App() {
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#C4A484]" />
                         <input 
                           type="email" 
-                          placeholder="Correo electrónico" 
+                          placeholder={t('booking.emailPlaceholder')}
                           required 
                           value={customerEmail} 
                           onChange={e => setCustomerEmail(e.target.value)} 
@@ -871,7 +919,7 @@ export default function App() {
 
                   <div className="border-t border-[#E5E2D9]/10 pt-6 mt-6">
                     <div className="flex items-end justify-between mb-6">
-                      <span className="text-[11px] uppercase tracking-[0.1em] text-[#E5E2D9]/70">Total a Pagar</span>
+                      <span className="text-[11px] uppercase tracking-[0.1em] text-[#E5E2D9]/70">{t('booking.total')}</span>
                       <span className="text-4xl font-serif text-[#C4A484] leading-none">{totalPrice.toFixed(2)}€</span>
                     </div>
                     <button 
@@ -879,10 +927,10 @@ export default function App() {
                       disabled={isLoadingPayment || (totalPrice === 0 && tickets.childFree === 0)}
                       className="w-full bg-[#C4A484] disabled:opacity-50 disabled:cursor-not-allowed text-[#0D0D0B] rounded-none py-4 text-[12px] font-bold tracking-[0.1em] uppercase hover:bg-[#b09376] transition-colors active:scale-[0.98] flex items-center justify-center"
                     >
-                      {isLoadingPayment ? <span className="animate-pulse">Registrando datos...</span> : 'Continuar al Resumen'}
+                      {isLoadingPayment ? <span className="animate-pulse">{t('booking.loading')}</span> : t('booking.continue')}
                     </button>
                     <p className="text-center text-[10px] uppercase tracking-[0.1em] text-[#E5E2D9]/50 mt-4 flex items-center justify-center gap-1">
-                      <Info className="w-3 h-3" /> Plataforma de pago 100% segura.
+                      <Info className="w-3 h-3" /> {t('booking.secure')}
                     </p>
                   </div>
                 </form>
@@ -916,35 +964,35 @@ export default function App() {
 
               <div className="text-center mb-8">
                 <CheckCircle className="w-12 h-12 text-[#C4A484] mx-auto mb-4" />
-                <h2 className="font-serif text-3xl text-[#E5E2D9]">Resumen de Pedido</h2>
-                <p className="text-[#C4A484] text-[10px] uppercase tracking-[0.2em] mt-2">Localizador: {currentOrderId}</p>
+                <h2 className="font-serif text-3xl text-[#E5E2D9]">{t('booking.summaryTitle')}</h2>
+                <p className="text-[#C4A484] text-[10px] uppercase tracking-[0.2em] mt-2">{t('booking.locator')}: {currentOrderId}</p>
               </div>
 
               <div className="space-y-4 border-t border-b border-[#E5E2D9]/10 py-6 mb-6">
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#E5E2D9]/50">Visitante</span>
+                  <span className="text-[#E5E2D9]/50">{t('booking.visitor')}</span>
                   <span className="text-[#E5E2D9] font-medium">{customerName}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#E5E2D9]/50">Fecha</span>
+                  <span className="text-[#E5E2D9]/50">{t('booking.date')}</span>
                   <span className="text-[#E5E2D9] font-medium">{date.split('-').reverse().join('/')}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#E5E2D9]/50">Hora</span>
+                  <span className="text-[#E5E2D9]/50">{t('booking.time')}</span>
                   <span className="text-[#E5E2D9] font-medium">{time}h</span>
                 </div>
                 <div className="flex justify-between text-sm pt-2 border-t border-[#E5E2D9]/5">
-                  <span className="text-[#E5E2D9]/50">Entradas</span>
+                  <span className="text-[#E5E2D9]/50">{t('booking.tickets')}</span>
                   <div className="text-right">
-                    {tickets.adult > 0 && <div className="text-[#E5E2D9]">{tickets.adult}x Adulto</div>}
-                    {tickets.reduced > 0 && <div className="text-[#E5E2D9]">{tickets.reduced}x Reducida</div>}
-                    {tickets.childFree > 0 && <div className="text-[#E5E2D9]">{tickets.childFree}x Infantil</div>}
+                    {tickets.adult > 0 && <div className="text-[#E5E2D9]">{tickets.adult}x {t('booking.adultLabel')}</div>}
+                    {tickets.reduced > 0 && <div className="text-[#E5E2D9]">{tickets.reduced}x {t('booking.reducedLabel')}</div>}
+                    {tickets.childFree > 0 && <div className="text-[#E5E2D9]">{tickets.childFree}x {t('booking.infantLabel')}</div>}
                   </div>
                 </div>
               </div>
 
               <div className="flex items-center justify-between mb-6">
-                <span className="text-sm uppercase tracking-widest text-[#E5E2D9]/70">Total a Pagar</span>
+                <span className="text-sm uppercase tracking-widest text-[#E5E2D9]/70">{t('booking.total')}</span>
                 <span className="text-3xl font-serif text-[#C4A484]">{totalPrice.toFixed(2)}€</span>
               </div>
 
@@ -953,10 +1001,10 @@ export default function App() {
                 <AlertCircle className="w-5 h-5 text-[#C4A484] shrink-0" />
                 <div className="space-y-1">
                   <p className="text-[10px] leading-relaxed text-[#E5E2D9]/90 italic uppercase tracking-widest font-bold">
-                    Aviso importante de seguridad
+                    {t('booking.securityAlertTitle')}
                   </p>
                   <p className="text-[9px] leading-relaxed text-[#E5E2D9]/70 uppercase tracking-wider">
-                    La validación de su reserva no es instantánea por protocolos de seguridad de red. Una vez completado el pago, el proceso puede demorar hasta <span className="text-[#C4A484]">60 minutos</span>. Por favor, esté atento a su correo electrónico tras finalizar la transacción.
+                    {t('booking.securityAlertText')}
                   </p>
                 </div>
               </div>
@@ -965,11 +1013,11 @@ export default function App() {
                 onClick={executePayment}
                 className="w-full bg-[#C4A484] text-[#0D0D0B] py-4 rounded-none text-[12px] font-bold uppercase tracking-[0.2em] hover:bg-[#b09376] transition-all flex items-center justify-center gap-2"
               >
-                Confirmar y Pagar <ArrowRight className="w-4 h-4" />
+                {t('booking.confirmPay')} <ArrowRight className="w-4 h-4" />
               </button>
               
               <p className="text-[9px] text-[#E5E2D9]/40 mt-6 text-justify leading-relaxed">
-                Al hacer clic en "Confirmar y Pagar", será redirigido a la pasarela segura de Redsys para completar la transacción. Sus datos ya han sido registrados de forma segura en nuestro sistema.
+                {t('booking.redsysDisclaimer')}
               </p>
             </motion.div>
           </motion.div>
@@ -1000,17 +1048,17 @@ export default function App() {
               
               <div className="flex items-center gap-3 mb-6 text-[#C4A484]">
                 <Info className="w-6 h-6" />
-                <h3 className="font-serif text-2xl tracking-wide uppercase">Accesibilidad</h3>
+                <h3 className="font-serif text-2xl tracking-wide uppercase">{t('booking.accessTitle')}</h3>
               </div>
               
               <div className="space-y-4 text-sm text-[#E5E2D9]/60 leading-relaxed font-light">
                 <p>
-                  Las cuevas son un espacio natural con terreno irregular, humedad y tramos con escalones. Por su propia morfología geológica, el recorrido no es accesible en su totalidad para personas con movilidad reducida severa, sillas de ruedas o carritos de bebé.
+                  {t('booking.accessText')}
                 </p>
                 <ul className="space-y-2 list-disc pl-4 italic">
-                  <li>Se recomienda el uso de mochilas portabebés.</li>
-                  <li>Es obligatorio el uso de calzado cómodo y cerrado (deportivo o montaña).</li>
-                  <li>No recomendado para personas con problemas respiratorios o cardíacos graves debido a la humedad y el esfuerzo físico moderado.</li>
+                  <li>{t('booking.accessItem1')}</li>
+                  <li>{t('booking.accessItem2')}</li>
+                  <li>{t('booking.accessItem3')}</li>
                 </ul>
               </div>
               
@@ -1018,7 +1066,7 @@ export default function App() {
                 onClick={() => setIsAccessModalOpen(false)}
                 className="w-full mt-8 bg-[#C4A484]/10 border border-[#C4A484]/20 text-[#C4A484] py-3 text-[10px] uppercase font-bold tracking-widest hover:bg-[#C4A484] hover:text-[#0D0D0B] transition-all"
               >
-                Entendido
+                {t('booking.understood')}
               </button>
             </motion.div>
           </motion.div>
@@ -1043,18 +1091,18 @@ export default function App() {
               <button onClick={() => setIsNormasModalOpen(false)} className="absolute top-4 right-4 text-[#E5E2D9]/30 hover:text-white"><X className="w-5 h-5" /></button>
               <div className="flex items-center gap-3 mb-6 text-[#C4A484] uppercase tracking-wider">
                 <FileText className="w-6 h-6" />
-                <h3 className="font-serif text-2xl tracking-wide uppercase">Normas de la Visita</h3>
+                <h3 className="font-serif text-2xl tracking-wide uppercase">{t('booking.rulesTitle')}</h3>
               </div>
               <div className="space-y-4 text-xs text-[#E5E2D9]/70 leading-relaxed uppercase tracking-wider font-light">
-                <p className="font-bold border-b border-[#E5E2D9]/10 pb-2">Ordenanza Municipal del Excmo. Ayuntamiento de Alájar</p>
+                <p className="font-bold border-b border-[#E5E2D9]/10 pb-2">{t('booking.rulesSubtitle')}</p>
                 <ul className="space-y-3 list-none">
-                  <li className="flex gap-3"><CheckCircle className="w-4 h-4 text-[#C4A484] shrink-0" /> Uso obligatorio de casco protector facilitado por la organización.</li>
-                  <li className="flex gap-3"><CheckCircle className="w-4 h-4 text-[#C4A484] shrink-0" /> Obligatorio calzado cerrado, cómodo y con suela antideslizante.</li>
-                  <li className="flex gap-3"><AlertCircle className="w-4 h-4 text-red-500 shrink-0" /> Prohibido tocar o extraer formaciones geológicas, flora o fauna.</li>
-                  <li className="flex gap-3"><AlertCircle className="w-4 h-4 text-red-500 shrink-0" /> Prohibido el acceso con animales (excepto perros guía).</li>
-                  <li className="flex gap-3"><AlertCircle className="w-4 h-4 text-red-500 shrink-0" /> Prohibido fumar, comer o introducir líquidos en la cavidad.</li>
-                  <li className="flex gap-3"><AlertCircle className="w-4 h-4 text-red-500 shrink-0" /> Prohibido el uso de trípodes o iluminación artificial sin permiso.</li>
-                  <li className="flex gap-3"><AlertCircle className="w-4 h-4 text-red-500 shrink-0" /> Queda prohibida la toma de fotografías en el interior de las cuevas sin autorización previa.</li>
+                  <li className="flex gap-3"><CheckCircle className="w-4 h-4 text-[#C4A484] shrink-0" /> {t('booking.rule1')}</li>
+                  <li className="flex gap-3"><CheckCircle className="w-4 h-4 text-[#C4A484] shrink-0" /> {t('booking.rule2')}</li>
+                  <li className="flex gap-3"><AlertCircle className="w-4 h-4 text-red-500 shrink-0" /> {t('booking.rule3')}</li>
+                  <li className="flex gap-3"><AlertCircle className="w-4 h-4 text-red-500 shrink-0" /> {t('booking.rule4')}</li>
+                  <li className="flex gap-3"><AlertCircle className="w-4 h-4 text-red-500 shrink-0" /> {t('booking.rule5')}</li>
+                  <li className="flex gap-3"><AlertCircle className="w-4 h-4 text-red-500 shrink-0" /> {t('booking.rule6')}</li>
+                  <li className="flex gap-3"><AlertCircle className="w-4 h-4 text-red-500 shrink-0" /> {t('booking.rule7')}</li>
                 </ul>
                 
                 <div className="mt-8 pt-6 border-t border-[#E5E2D9]/10 space-y-3">
@@ -1062,17 +1110,17 @@ export default function App() {
                     onClick={() => setIsFullOrdinanceOpen(true)}
                     className="flex items-center justify-center gap-2 w-full py-4 bg-[#C4A484] text-[#0D0D0B] transition-all font-bold text-[10px] uppercase tracking-widest"
                   >
-                    <FileText className="w-4 h-4" /> Leer Ordenanza Completa
+                    <FileText className="w-4 h-4" /> {t('booking.fullOrdinance')}
                   </button>
                   <a 
                     href="/ordenanza.pdf" 
                     target="_blank" 
                     className="flex items-center justify-center gap-2 w-full py-4 bg-[#E5E2D9]/5 border border-[#E5E2D9]/10 text-[#E5E2D9] hover:bg-[#C4A484] hover:text-[#0D0D0B] transition-all font-bold text-[10px] uppercase tracking-widest"
                   >
-                    <Download className="w-4 h-4" /> Descargar Ordenanza (PDF)
+                    <Download className="w-4 h-4" /> {t('booking.downloadOrdinance')}
                   </a>
                   <p className="text-[9px] text-[#E5E2D9]/30 mt-3 text-center normal-case italic">
-                    Publicado en el Boletín Oficial de la Provincia
+                    {t('booking.bopNotice')}
                   </p>
                 </div>
               </div>
@@ -1097,13 +1145,13 @@ export default function App() {
               className="bg-[#0D0D0B] text-[#E5E2D9] rounded-none w-full max-w-lg border border-[#E5E2D9]/10 relative shadow-2xl p-8"
             >
               <button onClick={() => setIsLegalModalOpen(false)} className="absolute top-4 right-4 text-[#E5E2D9]/30 hover:text-white"><X className="w-5 h-5" /></button>
-              <h3 className="font-serif text-2xl tracking-wide uppercase mb-6 text-[#C4A484]">Aviso Legal</h3>
+              <h3 className="font-serif text-2xl tracking-wide uppercase mb-6 text-[#C4A484]">{t('footer.legal')}</h3>
               <div className="space-y-4 text-xs text-[#E5E2D9]/70 leading-relaxed font-light uppercase tracking-widest leading-[1.8]">
-                <p><span className="font-bold">Titular:</span> Excmo. Ayuntamiento de Alájar</p>
+                <p><span className="font-bold">{t('booking.owner')}:</span> Excmo. Ayuntamiento de Alájar</p>
                 <p><span className="font-bold">CIF:</span> P2100100C</p>
-                <p><span className="font-bold">Dirección:</span> Plaza de España, 3, 21340, Alájar (Huelva)</p>
+                <p><span className="font-bold">{t('booking.address')}:</span> Plaza de España, 3, 21340, Alájar (Huelva)</p>
                 <p><span className="font-bold">Email:</span> info@cuevasdealajar.com</p>
-                <p className="mt-6 pt-4 border-t border-[#E5E2D9]/10 opacity-60 normal-case text-[10px]">En cumplimiento de la Ley 34/2002, de 11 de julio, de Servicios de la Sociedad de la Información y de Comercio Electrónico.</p>
+                <p className="mt-6 pt-4 border-t border-[#E5E2D9]/10 opacity-60 normal-case text-[10px]">{t('booking.legalNotice')}</p>
               </div>
             </motion.div>
           </motion.div>
@@ -1126,13 +1174,13 @@ export default function App() {
               className="bg-[#0D0D0B] text-[#E5E2D9] rounded-none w-full max-w-lg border border-[#E5E2D9]/10 relative shadow-2xl p-8"
             >
               <button onClick={() => setIsPrivacyModalOpen(false)} className="absolute top-4 right-4 text-[#E5E2D9]/30 hover:text-white"><X className="w-5 h-5" /></button>
-              <h3 className="font-serif text-2xl tracking-wide uppercase mb-6 text-[#C4A484]">Protección de Datos</h3>
+              <h3 className="font-serif text-2xl tracking-wide uppercase mb-6 text-[#C4A484]">{t('footer.privacy')}</h3>
               <div className="space-y-4 text-xs text-[#E5E2D9]/70 leading-relaxed font-light uppercase tracking-widest leading-[1.8]">
-                <p><span className="font-bold">Responsable:</span> Excmo. Ayuntamiento de Alájar (P2100100C)</p>
-                <p><span className="font-bold">Finalidad:</span> Gestión de reservas, venta de entradas y control de acceso a las Cuevas de Alájar.</p>
-                <p><span className="font-bold">Legitimación:</span> Su consentimiento explícito al realizar la reserva.</p>
-                <p><span className="font-bold">Derechos:</span> Acceso, rectificación, y borrado de sus datos escribiendo a secretaria@alajar.es.</p>
-                <p className="mt-6 pt-4 border-t border-[#E5E2D9]/10 opacity-60 normal-case text-[10px]">Toda la información es gestionada bajo estrictas medidas de seguridad conforme al RGPD.</p>
+                <p><span className="font-bold">{t('booking.responsible')}:</span> Excmo. Ayuntamiento de Alájar (P2100100C)</p>
+                <p><span className="font-bold">{t('booking.purpose')}:</span> {t('booking.purposeText')}</p>
+                <p><span className="font-bold">{t('booking.legitimacy')}:</span> {t('booking.legitimacyText')}</p>
+                <p><span className="font-bold">{t('booking.rights')}:</span> {t('booking.rightsText')}</p>
+                <p className="mt-6 pt-4 border-t border-[#E5E2D9]/10 opacity-60 normal-case text-[10px]">{t('booking.rgpdNotice')}</p>
               </div>
             </motion.div>
           </motion.div>
@@ -1165,9 +1213,9 @@ export default function App() {
                       className="w-16 h-16 object-contain mx-auto mb-4"
                       referrerPolicy="no-referrer"
                     />
-                    <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-[#C4A484]">Excmo. Ayuntamiento de Alájar</h2>
-                    <h1 className="text-3xl md:text-4xl font-serif leading-tight">ORDENANZA REGULADORA DEL USO, ACCESO, SEGURIDAD Y CONSERVACIÓN</h1>
-                    <p className="text-[10px] opacity-40 uppercase tracking-widest pt-4">Peña de Arias Montano, Cuevas de Alájar y Centro de Visitantes</p>
+                    <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-[#C4A484]">{t('booking.fullOrdinanceSubtitle')}</h2>
+                    <h1 className="text-3xl md:text-4xl font-serif leading-tight">{t('booking.fullOrdinanceTitle')}</h1>
+                    <p className="text-[10px] opacity-40 uppercase tracking-widest pt-4">{t('booking.fullOrdinanceScope')}</p>
                   </div>
 
                   <div className="space-y-8 text-sm leading-relaxed text-[#E5E2D9]/80 font-light font-serif">

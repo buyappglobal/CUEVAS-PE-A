@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Maximize2, ChevronLeft, ChevronRight, Loader2, Plus } from 'lucide-react';
+import { translations } from '../translations';
 
 interface GalleryImage {
   id: string;
@@ -9,29 +10,33 @@ interface GalleryImage {
   span?: string;
 }
 
+interface GalleryProps {
+  lang: 'es' | 'en';
+}
+
 const DRIVE_API_KEY = import.meta.env.VITE_GOOGLE_DRIVE_API_KEY;
 const FOLDER_ID = import.meta.env.VITE_DRIVE_FOLDER_ID;
 
-export const Gallery: React.FC = () => {
+export const Gallery: React.FC<GalleryProps> = ({ lang }) => {
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [visibleCount, setVisibleCount] = useState(15);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
 
-  const seoCaptions = [
-    "Cuevas de la Peña de Arias Montano",
-    "Patrimonio Histórico de Alájar",
-    "Paisajes de la Sierra de Huelva",
-    "Formaciones geológicas en Alájar",
-    "Entrada a las Cuevas de Alájar",
-    "Entorno natural Peña Arias Montano",
-    "Turismo rural en Huelva",
-    "Vistas desde la Peña de Alájar",
-    "Misterios de las Cuevas de Huelva",
-    "Naturaleza viva en la Sierra",
-    "Monumento natural Arias Montano",
-    "Rutas de senderismo por Alájar"
-  ];
+  const t = (path: string) => {
+    const keys = path.split('.');
+    let result: any = translations[lang];
+    for (const key of keys) {
+      if (result && result[key]) {
+        result = result[key];
+      } else {
+        return path;
+      }
+    }
+    return result;
+  };
+
+  const seoCaptions = t('gallery.seo') as string[];
 
   useEffect(() => {
     console.log("🔍 Gallery: Iniciando carga de imágenes", { hasKey: !!DRIVE_API_KEY, folder: FOLDER_ID });
@@ -125,7 +130,7 @@ export const Gallery: React.FC = () => {
             viewport={{ once: true }}
             className="text-[#C4A484] uppercase tracking-[0.3em] text-[10px] font-bold mb-4"
           >
-            Galería Visual
+            {t('gallery.tag')}
           </motion.p>
           <motion.h2 
             initial={{ opacity: 0, y: 20 }}
@@ -133,7 +138,7 @@ export const Gallery: React.FC = () => {
             viewport={{ once: true }}
             className="text-4xl md:text-5xl font-serif text-[#E5E2D9] font-light"
           >
-            Belleza <span className="italic text-[#C4A484]">Subterránea</span>
+            {t('gallery.title')} <span className="italic text-[#C4A484]">{t('gallery.accent')}</span>
           </motion.h2>
         </div>
 
@@ -172,7 +177,7 @@ export const Gallery: React.FC = () => {
               className="group relative px-8 py-4 bg-transparent border border-[#C4A484]/30 hover:border-[#C4A484] text-[#C4A484] text-[11px] uppercase tracking-[0.3em] font-bold transition-all duration-300 flex items-center gap-3 mx-auto"
             >
               <Plus className="w-4 h-4 transition-transform group-hover:rotate-90" />
-              Ver más imágenes
+              {t('gallery.loadMore')}
             </button>
           </div>
         )}
