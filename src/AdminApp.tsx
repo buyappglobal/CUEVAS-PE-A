@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { db, auth, loginWithGoogle, loginWithEmail, logout } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, query, getDocs, doc, getDoc, setDoc, updateDoc, increment, where, onSnapshot, deleteDoc } from 'firebase/firestore';
-import { Calendar, Clock, Ticket, Users, FileText, CheckCircle, Plus, LogOut, Mountain, X, RefreshCw, Info, Ban, AlertCircle, Copy, Mail, Sun, Moon, Globe } from 'lucide-react';
+import { Calendar, Clock, Ticket, Users, FileText, CheckCircle, Plus, LogOut, Mountain, X, RefreshCw, Info, Ban, AlertCircle, Copy, Mail, Sun, Moon, Globe, Maximize, Minimize } from 'lucide-react';
 import { motion } from 'motion/react';
 import { translations } from './translations';
 
@@ -23,6 +23,7 @@ export default function AdminApp() {
     return new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [filterByVisitDate, setFilterByVisitDate] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(50);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
@@ -52,6 +53,22 @@ export default function AdminApp() {
     setLang(newLang);
     localStorage.setItem('crm-lang', newLang);
   };
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(err => {
+        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen().then(() => setIsFullscreen(false));
+    }
+  };
+
+  useEffect(() => {
+    const handleFSChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handleFSChange);
+    return () => document.removeEventListener('fullscreenchange', handleFSChange);
+  }, []);
 
   const toggleTheme = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
@@ -555,7 +572,8 @@ export default function AdminApp() {
       `Fecha y hora de la visita: ${r.date} a las ${r.time}\n\n` +
       `Nº de entradas: ${r.totalTickets} (Adultos: ${r.tickets?.adult || 0}, Reducidas: ${r.tickets?.reduced || 0}, Niños gratis: ${r.tickets?.childFree || 0})\n\n` +
       `📌 Información importante para tu visita:\n` +
-      `Entradas: No es necesario que imprimas este correo. Puedes mostrar este mismo email desde tu teléfono móvil en la taquilla al llegar.\n\n` +
+      `📍 Punto de encuentro: La visita se inicia en el Centro de Interpretación "Arias Montano", ubicado en la propia Peña. Por favor, acuda allí para validar su reserva y dar comienzo a la actividad.\n\n` +
+      `Entradas: No es necesario que imprimas este correo. Puedes mostrar este mismo email desde tu teléfono móvil en el punto de encuentro al llegar.\n\n` +
       `Puntualidad: Te recomendamos llegar al menos 15 minutos antes de la hora de tu visita para poder validar tu entrada sin prisas.\n\n` +
       `Recomendaciones: Recuerda llevar calzado cómodo y ropa adecuada para la temperatura del interior de las cuevas.\n\n` +
       `📍 ¿Cómo llegar?\n` +
@@ -726,30 +744,44 @@ export default function AdminApp() {
 
         <div className="flex items-center gap-4">
           {/* Language Selector */}
-          <button 
-            onClick={toggleLang}
-            className={`px-4 py-2 rounded-full border transition-all flex items-center gap-2 shadow-md relative z-50 ${
-              theme === 'dark' 
-                ? 'bg-[#1A1A1A] border-[#C4A484]/40 text-[#C4A484] hover:bg-[#C4A484]/10' 
-                : 'bg-white border-gray-300 text-[#C4A484] hover:bg-gray-50'
-            }`}
-            title={lang === 'es' ? 'Switch to English' : 'Pasar a Español'}
-          >
-            <Globe className="w-5 h-5" />
-            <span className="text-[10px] font-black uppercase tracking-widest">{lang === 'es' ? 'ES' : 'EN'}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={toggleLang}
+              className={`px-3 py-1.5 rounded-full border transition-all flex items-center gap-2 shadow-sm ${
+                theme === 'dark' 
+                  ? 'bg-[#1A1A1A] border-[#C4A484]/20 text-[#C4A484] hover:bg-[#C4A484]/10' 
+                  : 'bg-white border-gray-200 text-[#C4A484] hover:bg-gray-50'
+              }`}
+              title={lang === 'es' ? 'Switch to English' : 'Pasar a Español'}
+            >
+              <Globe className="w-4 h-4" />
+              <span className="text-[10px] font-black uppercase tracking-widest">{lang === 'es' ? 'ES' : 'EN'}</span>
+            </button>
+
+            <button 
+              onClick={toggleFullscreen}
+              className={`p-1.5 rounded-full border transition-all flex items-center gap-2 shadow-sm ${
+                theme === 'dark' 
+                  ? 'bg-[#1A1A1A] border-[#C4A484]/20 text-[#C4A484] hover:bg-[#C4A484]/10' 
+                  : 'bg-white border-gray-200 text-[#C4A484] hover:bg-gray-50'
+              }`}
+              title={isFullscreen ? 'Salir' : 'Max'}
+            >
+              {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+            </button>
+          </div>
 
           <button 
             onClick={toggleTheme}
-            className={`px-4 py-2 rounded-full border transition-all flex items-center gap-2 shadow-md relative z-50 ${
+            className={`px-3 py-1.5 rounded-full border transition-all flex items-center gap-2 shadow-sm ${
               theme === 'dark' 
-                ? 'bg-[#1A1A1A] border-[#C4A484]/40 text-[#C4A484] hover:bg-[#C4A484]/10' 
+                ? 'bg-[#1A1A1A] border-[#C4A484]/20 text-[#C4A484] hover:bg-[#C4A484]/10' 
                 : 'bg-white border-gray-300 text-[#C4A484] hover:bg-gray-50'
             }`}
-            title={theme === 'dark' ? 'Pasar a Modo Claro' : 'Pasar a Modo Oscuro'}
+            title={theme === 'dark' ? 'Modo Claro' : 'Modo Oscuro'}
           >
-            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            <span className="text-[10px] font-black uppercase tracking-widest">{theme === 'dark' ? 'Claro' : 'Oscuro'}</span>
+            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            <span className="hidden md:inline text-[9px] font-black uppercase tracking-widest">{theme === 'dark' ? 'Claro' : 'Oscuro'}</span>
           </button>
 
           <div className="hidden md:flex items-center gap-4 border-l pl-4 border-gray-500/20">

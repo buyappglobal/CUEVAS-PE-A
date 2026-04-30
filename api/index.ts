@@ -323,9 +323,10 @@ app.post(['/api/send-manual-email', '/send-manual-email'], async (req, res) => {
 
             <p><strong>Información importante:</strong></p>
             <ul style="color: #666; font-size: 14px;">
-              <li>Por favor, llega 10 minutos antes de tu hora reservada.</li>
-              <li>Presenta este email (digital o impreso) en la taquilla del Centro de Visitantes.</li>
-              <li>La visita se realiza en las Cuevas de la Peña, Alájar (Huelva).</li>
+              <li><strong>Punto de encuentro:</strong> La visita comienza en el <strong>Centro de Interpretación "Arias Montano"</strong>, situado en la misma Peña. Es imprescindible presentarse allí para validar su entrada antes del inicio.</li>
+              <li>Por favor, llega al menos 15 minutos antes de tu hora reservada.</li>
+              <li>Presenta este email (digital o impreso) en el Centro de Interpretación.</li>
+              <li>Se recomienda calzado cómodo y ropa adecuada para el interior de las cuevas.</li>
             </ul>
 
             <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #999;">

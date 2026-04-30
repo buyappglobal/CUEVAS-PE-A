@@ -11,7 +11,7 @@ import { Gallery } from './components/Gallery';
 import { 
   MapPin, Calendar, Ticket, ChevronRight, Mountain, 
   Leaf, History, Utensils, ArrowRight, Clock, Users, X, Info, Camera, Tent,
-  CheckCircle, AlertCircle, User, Mail, Phone, FileText, Download, Share2, Globe
+  CheckCircle, AlertCircle, User, Mail, Phone, FileText, Download, Share2, Globe, Maximize, Minimize
 } from 'lucide-react';
 import { translations } from './translations';
 
@@ -39,6 +39,7 @@ export default function App() {
   const [isFullOrdinanceOpen, setIsFullOrdinanceOpen] = useState(false);
   const [selectedTour, setSelectedTour] = useState('');
   const [lang, setLang] = useState<'es' | 'en'>('es');
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   const t = (path: string) => {
     const keys = path.split('.');
@@ -319,6 +320,22 @@ export default function App() {
     }
   };
 
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(err => {
+        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen().then(() => setIsFullscreen(false));
+    }
+  };
+
+  useEffect(() => {
+    const handleFSChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handleFSChange);
+    return () => document.removeEventListener('fullscreenchange', handleFSChange);
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#0D0D0B] font-sans text-[#E5E2D9] selection:bg-[#C4A484] selection:text-[#0D0D0B] overflow-x-hidden">
       {/* Notificaciones de Pago */}
@@ -351,6 +368,19 @@ export default function App() {
       </AnimatePresence>
 
       {/* Navbar */}
+      {/* Floating Action Buttons */}
+      <div className="fixed bottom-6 left-6 z-[40] flex flex-col gap-3">
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={toggleFullscreen}
+          className="w-12 h-12 bg-[#0D0D0B]/80 backdrop-blur-md border border-[#C4A484]/30 text-[#C4A484] rounded-full flex items-center justify-center shadow-2xl hover:border-[#C4A484] transition-colors"
+          title={isFullscreen ? (lang === 'es' ? 'Salir pantalla completa' : 'Exit fullscreen') : (lang === 'es' ? 'Pantalla completa' : 'Fullscreen')}
+        >
+          {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+        </motion.button>
+      </div>
+
       <nav className="fixed top-0 inset-x-0 z-50 bg-[#0D0D0B]/90 backdrop-blur-md border-b border-[#E5E2D9]/10">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <button 
@@ -363,7 +393,7 @@ export default function App() {
               className="w-8 h-8 object-contain"
               referrerPolicy="no-referrer"
             />
-            <span className="font-serif text-xl tracking-[0.05em] uppercase">Peña Arias Montano</span>
+            <span className="font-serif text-base sm:text-lg md:text-xl tracking-[0.05em] uppercase">Peña Arias Montano</span>
           </button>
           
           <div className="flex items-center gap-4 md:gap-8">
@@ -374,10 +404,10 @@ export default function App() {
               <a href="#alajar" className="hover:text-[#E5E2D9] transition-colors">{t('nav.alajar')}</a>
             </div>
             
-            <div className="flex items-center gap-4 md:gap-6 md:border-l md:border-[#E5E2D9]/10 md:pl-6">
+            <div className="flex items-center gap-3 md:gap-6 md:border-l md:border-[#E5E2D9]/10 md:pl-6">
               {/* Language Selector */}
-              <div className="flex items-center gap-2 mr-2">
-                <Globe className="w-4 h-4 text-[#C4A484]/60" />
+              <div className="flex items-center gap-1.5 md:gap-2 mr-1 md:mr-2">
+                <Globe className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#C4A484]/60" />
                 <button 
                   onClick={() => setLang('es')}
                   className={`text-[10px] font-bold transition-colors ${lang === 'es' ? 'text-[#C4A484]' : 'text-[#E5E2D9]/40 hover:text-[#E5E2D9]'}`}
@@ -393,15 +423,6 @@ export default function App() {
                 </button>
               </div>
 
-              <motion.button 
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={handleShare}
-                className="text-[#C4A484] hover:text-[#E5E2D9] transition-colors p-2"
-                title={lang === 'es' ? 'Compartir web' : 'Share website'}
-              >
-                <Share2 className="w-5 h-5 md:w-4 md:h-4" />
-              </motion.button>
               <button 
                 onClick={() => openBooking()} 
                 className="hidden sm:block text-[#C4A484] hover:opacity-100 opacity-80 font-bold transition-opacity text-[11px] uppercase tracking-[0.15em]"
@@ -725,6 +746,13 @@ export default function App() {
                {/* Redes sociales */}
                <a href="https://www.instagram.com/aytoalajar/" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-none border border-[#E5E2D9]/20 flex items-center justify-center hover:bg-[#E5E2D9]/10 hover:text-[#E5E2D9] transition-colors cursor-pointer text-sm normal-case">Ig</a>
                <a href="https://www.facebook.com/aytoalajar" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-none border border-[#E5E2D9]/20 flex items-center justify-center hover:bg-[#E5E2D9]/10 hover:text-[#E5E2D9] transition-colors cursor-pointer text-sm normal-case">Fb</a>
+               <button 
+                 onClick={handleShare}
+                 className="w-10 h-10 rounded-none border border-[#E5E2D9]/20 flex items-center justify-center hover:bg-[#E5E2D9]/10 hover:text-[#E5E2D9] transition-colors cursor-pointer text-sm"
+                 title={lang === 'es' ? 'Compartir web' : 'Share website'}
+               >
+                 <Share2 className="w-4 h-4" />
+               </button>
             </div>
           </div>
           
@@ -819,8 +847,8 @@ export default function App() {
                       </div>
                       {/* Time Slots */}
                       <div className="grid grid-cols-3 gap-2">
-                        {['11:00', '12:30', '16:00'].map(t => {
-                          const booked = slotCapacities[t] || 0;
+                        {['11:00', '12:30', '16:00'].map(slotTime => {
+                          const booked = slotCapacities[slotTime] || 0;
                           // Online capacity is 20, but cannot exceed 30 total
                           const free = Math.max(0, Math.min(MAX_ONLINE_LIMIT - booked, TOTAL_CAPACITY - booked));
                           const isFull = free === 0;
@@ -829,13 +857,13 @@ export default function App() {
                           
                           return (
                           <button
-                            key={t}
+                            key={slotTime}
                             type="button"
                             disabled={isDisabled}
-                            onClick={() => setTime(t)}
-                            className={`py-3 text-[12px] font-bold tracking-[0.1em] border rounded-none transition-all flex flex-col items-center justify-center gap-1 ${time === t ? 'bg-[#C4A484] text-[#0D0D0B] border-[#C4A484]' : isDisabled ? 'bg-red-900/10 border-red-900/20 text-red-500/50 cursor-not-allowed' : 'bg-transparent border-[#E5E2D9]/20 text-[#E5E2D9] hover:border-[#C4A484]/50 hover:text-[#C4A484]'}`}
+                            onClick={() => setTime(slotTime)}
+                            className={`py-3 text-[12px] font-bold tracking-[0.1em] border rounded-none transition-all flex flex-col items-center justify-center gap-1 ${time === slotTime ? 'bg-[#C4A484] text-[#0D0D0B] border-[#C4A484]' : isDisabled ? 'bg-red-900/10 border-red-900/20 text-red-500/50 cursor-not-allowed' : 'bg-transparent border-[#E5E2D9]/20 text-[#E5E2D9] hover:border-[#C4A484]/50 hover:text-[#C4A484]'}`}
                           >
-                            <div className="flex items-center gap-2"><Clock className="w-3 h-3" /> {t}</div>
+                            <div className="flex items-center gap-2"><Clock className="w-3 h-3" /> {slotTime}</div>
                             <span className="text-[9px] opacity-70 tracking-normal font-normal">
                               {!isDateAllowed ? t('booking.closed') : isFull ? t('booking.full') : `${free} ${t('booking.freeSlots')}`}
                             </span>
