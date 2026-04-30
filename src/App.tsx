@@ -450,26 +450,48 @@ export default function App() {
         
         <div className="relative z-10 text-center px-6 max-w-4xl mx-auto mt-12">
           <motion.p 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
+            initial={{ opacity: 0, y: 10, scale: 1 }}
+            animate={{ 
+              opacity: 1, 
+              y: 0,
+              scale: 0.92
+            }}
+            transition={{ 
+              opacity: { duration: 0.8, delay: 0.2 },
+              y: { duration: 0.8, delay: 0.2 },
+              scale: { duration: 12, ease: "easeOut", delay: 0.2 }
+            }}
             className="text-[#C4A484] uppercase tracking-[0.3em] text-[12px] font-medium mb-6"
           >
             {t('hero.location')}
           </motion.p>
           <motion.h1 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1, delay: 0.4, ease: "easeOut" }}
+            initial={{ opacity: 0, scale: 1 }}
+            animate={{ 
+              opacity: 1, 
+              scale: 0.88
+            }}
+            transition={{ 
+              opacity: { duration: 1, delay: 0.4, ease: "easeOut" },
+              scale: { duration: 12, ease: "easeOut", delay: 0.4 }
+            }}
             className="text-5xl md:text-7xl lg:text-[80px] font-serif text-[#E5E2D9] leading-[1.1] mb-8 font-light"
           >
             {t('hero.title1')} <br className="hidden md:block"/>
             <span className="text-[#C4A484]">{t('hero.title2')}</span>
           </motion.h1>
           <motion.p 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.6 }}
+            initial={{ opacity: 0, y: 10, scale: 1 }}
+            animate={{ 
+              opacity: 1, 
+              y: 0,
+              scale: 0.92
+            }}
+            transition={{ 
+              opacity: { duration: 0.8, delay: 0.6 },
+              y: { duration: 0.8, delay: 0.6 },
+              scale: { duration: 12, ease: "easeOut", delay: 0.6 }
+            }}
             className="text-[18px] text-[#E5E2D9]/80 mb-10 max-w-2xl mx-auto font-light leading-[1.6]"
           >
             {t('hero.desc')}
@@ -697,7 +719,7 @@ export default function App() {
               <span className="font-serif text-lg normal-case tracking-[0.05em] text-[#E5E2D9]">Peña Arias Montano</span>
             </div>
             <p className="max-w-sm leading-[1.6] mb-8 normal-case text-[12px] opacity-70">
-              Protegiendo y valorando el patrimonio histórico y natural de Alájar. Reserva oficial de entradas y visitas.
+              {t('footer.slogan')}
             </p>
             <div className="flex gap-4">
                {/* Redes sociales */}
@@ -721,9 +743,9 @@ export default function App() {
               <li className="flex items-start gap-3">
                 <MapPin className="w-4 h-4 shrink-0" />
                 <div className="flex flex-col gap-1">
-                  <span className="normal-case text-[12px] font-bold text-[#E5E2D9]/60">Ayuntamiento de Alájar</span>
-                  <span className="normal-case text-[12px]">Plaza España nº3, 21340 Alájar (Huelva)</span>
-                  <span className="text-[10px]">CIF: P2100100C</span>
+                  <span className="normal-case text-[12px] font-bold text-[#E5E2D9]/60">{t('footer.townHall')}</span>
+                  <span className="normal-case text-[12px]">{t('footer.address')}</span>
+                  <span className="text-[10px]">{t('footer.taxId')}</span>
                 </div>
               </li>
               <li className="flex items-start gap-3">
@@ -1147,9 +1169,9 @@ export default function App() {
               <button onClick={() => setIsLegalModalOpen(false)} className="absolute top-4 right-4 text-[#E5E2D9]/30 hover:text-white"><X className="w-5 h-5" /></button>
               <h3 className="font-serif text-2xl tracking-wide uppercase mb-6 text-[#C4A484]">{t('footer.legal')}</h3>
               <div className="space-y-4 text-xs text-[#E5E2D9]/70 leading-relaxed font-light uppercase tracking-widest leading-[1.8]">
-                <p><span className="font-bold">{t('booking.owner')}:</span> Excmo. Ayuntamiento de Alájar</p>
-                <p><span className="font-bold">CIF:</span> P2100100C</p>
-                <p><span className="font-bold">{t('booking.address')}:</span> Plaza de España, 3, 21340, Alájar (Huelva)</p>
+                <p><span className="font-bold">{t('booking.owner')}:</span> {t('footer.townHall')}</p>
+                <p><span className="font-bold">{t('footer.taxId')}</span></p>
+                <p><span className="font-bold">{t('booking.address')}:</span> {t('footer.address')}</p>
                 <p><span className="font-bold">Email:</span> info@cuevasdealajar.com</p>
                 <p className="mt-6 pt-4 border-t border-[#E5E2D9]/10 opacity-60 normal-case text-[10px]">{t('booking.legalNotice')}</p>
               </div>
@@ -1176,7 +1198,7 @@ export default function App() {
               <button onClick={() => setIsPrivacyModalOpen(false)} className="absolute top-4 right-4 text-[#E5E2D9]/30 hover:text-white"><X className="w-5 h-5" /></button>
               <h3 className="font-serif text-2xl tracking-wide uppercase mb-6 text-[#C4A484]">{t('footer.privacy')}</h3>
               <div className="space-y-4 text-xs text-[#E5E2D9]/70 leading-relaxed font-light uppercase tracking-widest leading-[1.8]">
-                <p><span className="font-bold">{t('booking.responsible')}:</span> Excmo. Ayuntamiento de Alájar (P2100100C)</p>
+                <p><span className="font-bold">{t('booking.responsible')}:</span> {t('footer.townHall')} (P2100100C)</p>
                 <p><span className="font-bold">{t('booking.purpose')}:</span> {t('booking.purposeText')}</p>
                 <p><span className="font-bold">{t('booking.legitimacy')}:</span> {t('booking.legitimacyText')}</p>
                 <p><span className="font-bold">{t('booking.rights')}:</span> {t('booking.rightsText')}</p>

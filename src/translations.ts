@@ -75,7 +75,10 @@ export const translations = {
       rights: "Todos los derechos reservados.",
       legal: "Aviso Legal",
       privacy: "Privacidad",
-      admin: "Admin"
+      admin: "Admin",
+      townHall: "Ayuntamiento de Alájar",
+      address: "Plaza España nº3, 21340 Alájar (Huelva)",
+      taxId: "CIF: P2100100C"
     },
     booking: {
       tag: "Reserva de Entradas",
@@ -247,7 +250,10 @@ export const translations = {
       rights: "All rights reserved.",
       legal: "Legal Notice",
       privacy: "Privacy Policy",
-      admin: "Admin"
+      admin: "Admin",
+      townHall: "Alájar Town Hall",
+      address: "3rd Spain Square, 21340 Alájar (Huelva)",
+      taxId: "VAT: P2100100C"
     },
     booking: {
       tag: "Ticket Booking",
