@@ -60,8 +60,28 @@ export default function App() {
   const [tickets, setTickets] = useState({ adult: 0, reduced: 0, childFree: 0 });
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
+  const [customerPostalCode, setCustomerPostalCode] = useState('');
+  const [customerCity, setCustomerCity] = useState('');
   
   const [isLoadingPayment, setIsLoadingPayment] = useState(false);
+
+  // Fetch city from API when CP changes
+  useEffect(() => {
+    if (customerPostalCode.length === 5) {
+      fetch(`https://api.zippopotam.us/es/${customerPostalCode}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data && data.places && data.places.length > 0) {
+            const place = data.places[0];
+            setCustomerCity(`${place['place name']} (${place['state']})`);
+          }
+        })
+        .catch(() => {});
+    } else {
+      setCustomerCity('');
+    }
+  }, [customerPostalCode]);
+  
   const [paymentStatus, setPaymentStatus] = useState<'success' | 'error' | null>(null);
 
   useEffect(() => {
@@ -242,7 +262,12 @@ export default function App() {
           tickets, 
           date, 
           time, 
-          customer: { name: customerName, email: customerEmail } 
+          customer: { 
+            name: customerName, 
+            email: customerEmail,
+            postalCode: customerPostalCode,
+            city: customerCity
+          } 
         })
       });
       
@@ -964,6 +989,24 @@ export default function App() {
                           className="w-full bg-[#E5E2D9]/5 border border-[#E5E2D9]/10 rounded-none pl-10 pr-4 py-3 text-[#E5E2D9] focus:outline-none focus:border-[#C4A484] placeholder:text-[#E5E2D9]/30" 
                         />
                       </div>
+                      <div className="relative md:col-span-2">
+                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#C4A484]" />
+                        <input 
+                          type="text" 
+                          placeholder={t('booking.postalCodePlaceholder')}
+                          required 
+                          maxLength={5}
+                          pattern="[0-9]{5}"
+                          value={customerPostalCode} 
+                          onChange={e => setCustomerPostalCode(e.target.value)} 
+                          className="w-full bg-[#E5E2D9]/5 border border-[#E5E2D9]/10 rounded-none pl-10 pr-4 py-3 text-[#E5E2D9] focus:outline-none focus:border-[#C4A484] placeholder:text-[#E5E2D9]/30" 
+                        />
+                      </div>
+                      {customerCity && (
+                        <div className="md:col-span-2 text-[10px] text-[#C4A484] uppercase tracking-widest pl-1">
+                          📍 {customerCity}
+                        </div>
+                      )}
                     </div>
                   </div>
 

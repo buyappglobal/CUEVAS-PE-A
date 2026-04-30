@@ -176,6 +176,8 @@ app.post(['/api/create-payment', '/create-payment'], async (req, res) => {
       time,
       customerName: customer.name,
       customerEmail: customer.email,
+      customerPostalCode: customer.postalCode || '',
+      customerCity: customer.city || '',
       tickets,
       totalTickets,
       amount,

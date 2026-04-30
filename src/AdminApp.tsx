@@ -265,6 +265,8 @@ export default function AdminApp() {
         !searchTerm ||
         r.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.customerEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.customerPostalCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.customerCity?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.localizador?.toLowerCase().includes(searchTerm.toLowerCase());
       
       // 2. Filtro por Estado (Ocultamos canceladas por defecto si el filtro es 'all'?) 
@@ -408,8 +410,27 @@ export default function AdminApp() {
     time: '11:00',
     customerName: '',
     customerEmail: '',
+    customerPostalCode: '',
+    customerCity: '',
     tickets: { adult: 0, reduced: 0, childFree: 0 }
   });
+
+  // Fetch city for manual sale
+  useEffect(() => {
+    if (manualSaleForm.customerPostalCode.length === 5) {
+      fetch(`https://api.zippopotam.us/es/${manualSaleForm.customerPostalCode}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data && data.places && data.places.length > 0) {
+            const place = data.places[0];
+            setManualSaleForm(prev => ({...prev, customerCity: `${place['place name']} (${place['state']})`}));
+          }
+        })
+        .catch(() => {});
+    } else if (manualSaleForm.customerPostalCode.length < 5) {
+      setManualSaleForm(prev => ({...prev, customerCity: ''}));
+    }
+  }, [manualSaleForm.customerPostalCode]);
 
   const handleManualSale = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -427,6 +448,8 @@ export default function AdminApp() {
         time: manualSaleForm.time,
         customerName: manualSaleForm.customerName,
         customerEmail: manualSaleForm.customerEmail || 'mostrador@cuevasdealajar.com',
+        customerPostalCode: manualSaleForm.customerPostalCode || '',
+        customerCity: manualSaleForm.customerCity || '',
         tickets: manualSaleForm.tickets,
         totalPrice: (manualSaleForm.tickets.adult * 10) + (manualSaleForm.tickets.reduced * 8),
         totalTickets: total,
@@ -454,6 +477,8 @@ export default function AdminApp() {
         time: '11:00',
         customerName: '',
         customerEmail: '',
+        customerPostalCode: '',
+        customerCity: '',
         tickets: { adult: 0, reduced: 0, childFree: 0 }
       });
       fetchData();
@@ -629,7 +654,7 @@ export default function AdminApp() {
     
     // Headers
     const headers = [
-      'Localizador', 'Fecha Visita', 'Hora', 'Cliente', 'Email', 
+      'Localizador', 'Fecha Visita', 'Hora', 'Cliente', 'Email', 'C.P.', 'Ciudad/Provincia',
       'Estado', 'Origen', 'Adultos', 'Reducidas', 'Niños Grat.', 
       'Total Entradas', 'Precio Total', 'Fecha Compra'
     ];
@@ -640,6 +665,8 @@ export default function AdminApp() {
       r.time || '',
       r.customerName || '',
       r.customerEmail || '',
+      r.customerPostalCode || '',
+      r.customerCity || '',
       r.status || '',
       r.origin || 'online',
       r.tickets?.adult || 0,
@@ -681,7 +708,7 @@ export default function AdminApp() {
     doc.text(`Rango: ${reportStartDate} hasta ${reportEndDate} (Filtrado por ${reportFilterType === 'visit' ? 'Día de Visita' : 'Día de Compra'})`, 14, 30);
     
     const headers = [
-      'Loc.', 'Visita', 'Cliente', 'Email', 
+      'Loc.', 'Visita', 'Cliente', 'Email', 'C.P.', 'Ciudad/Prov.',
       'Estado', 'Adulto', 'Red.', 'Gratis', 
       'Total', 'Precio', 'F. Compra'
     ];
@@ -691,6 +718,8 @@ export default function AdminApp() {
       r.date || '',
       r.customerName || '',
       r.customerEmail || '',
+      r.customerPostalCode || '',
+      r.customerCity || '',
       r.status || '',
       r.tickets?.adult || 0,
       r.tickets?.reduced || 0,
@@ -1238,6 +1267,10 @@ export default function AdminApp() {
                   <Tooltip text="Datos de contacto del comprador." />
                 </th>
                 <th className="p-4">
+                  C.P. / Ciudad
+                  <Tooltip text="Código Postal y Ciudad del cliente." />
+                </th>
+                <th className="p-4">
                   Tickets (A/R/I)
                   <Tooltip text="Desglose por tipo: Adulto / Reducida / Infantil (Gratis)." />
                 </th>
@@ -1297,6 +1330,10 @@ export default function AdminApp() {
                         </button>
                       </div>
                     </td>
+                    <td className={`p-4 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/50' : 'text-gray-400'}`}>
+                      <div className="font-mono text-xs">{r.customerPostalCode || '---'}</div>
+                      <div className="text-[9px] uppercase tracking-wider">{r.customerCity || ''}</div>
+                    </td>
                     <td className={`p-4 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/70' : 'text-gray-600'}`}>
                       {r.tickets?.adult || 0} / {r.tickets?.reduced || 0} / {r.tickets?.childFree || 0}
                     </td>
@@ -1344,6 +1381,9 @@ export default function AdminApp() {
                     <div className={`text-[10px] flex items-center gap-1 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>
                       <Mail className="w-3 h-3" />
                       {r.customerEmail}
+                    </div>
+                    <div className={`text-[10px] font-mono mt-1 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/30' : 'text-gray-500'}`}>
+                      CP: {r.customerPostalCode || '---'} {r.customerCity ? `| ${r.customerCity}` : ''}
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
@@ -1572,6 +1612,26 @@ export default function AdminApp() {
                   />
                 </div>
 
+                <div>
+                  <label className={`block text-[10px] uppercase tracking-widest mb-2 font-bold transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>CÓDIGO POSTAL</label>
+                  <input 
+                    type="text"
+                    placeholder="Ej: 21340"
+                    maxLength={5}
+                    pattern="[0-9]{5}"
+                    value={manualSaleForm.customerPostalCode}
+                    onChange={e => setManualSaleForm({...manualSaleForm, customerPostalCode: e.target.value})}
+                    className={`w-full border p-3 text-sm focus:outline-none focus:border-[#C4A484]/50 transition-colors ${
+                      theme === 'dark' ? 'bg-[#0D0D0B] border-[#E5E2D9]/10 text-[#E5E2D9]' : 'bg-gray-50 border-gray-200 text-gray-900'
+                    }`}
+                  />
+                  {manualSaleForm.customerCity && (
+                    <div className="mt-1 text-[10px] text-[#C4A484] uppercase tracking-widest">
+                      📍 {manualSaleForm.customerCity}
+                    </div>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className={`block text-[10px] uppercase tracking-widest mb-2 font-bold transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>ADULTO</label>
@@ -1785,10 +1845,20 @@ export default function AdminApp() {
                     <div className="relative z-10">
                       <p className={`text-[10px] uppercase font-bold tracking-widest mb-1 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/30' : 'text-gray-400'}`}>Canceladas / Error</p>
                       <h4 className="text-3xl font-serif text-red-400">
-                        {allReservations.filter(r => r.status === 'cancelled' || r.status === 'failed').length}
+                        {stats.reportData.filter(r => r.status === 'cancelled' || r.status === 'failed').length}
                       </h4>
                       <p className={`text-[9px] mt-2 opacity-50 uppercase tracking-tight`}>Bajas totales del sistema</p>
                     </div>
+                  </div>
+
+                  {/* New: Ticket Breakdown Cards */}
+                  <div className={`p-4 border col-span-1 md:col-span-2 lg:col-span-4 grid grid-cols-3 gap-4 transition-colors ${theme === 'dark' ? 'bg-[#1A1A1A] border-[#E5E2D9]/5' : 'bg-white border-gray-100'}`}>
+                    {stats.tickets.map(t => (
+                      <div key={t.name} className="text-center border-r last:border-0 border-[#C4A484]/10">
+                        <p className={`text-[8px] uppercase font-bold tracking-widest mb-1 opacity-50`}>{t.name}</p>
+                        <p className="text-xl font-serif text-[#C4A484]">{t.value}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
