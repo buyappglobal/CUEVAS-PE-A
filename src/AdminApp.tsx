@@ -29,6 +29,8 @@ export default function AdminApp() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isReportsOpen, setIsReportsOpen] = useState(false);
+  const [reportStartDate, setReportStartDate] = useState(dateFilter);
+  const [reportEndDate, setReportEndDate] = useState(dateFilter);
   const [filterByVisitDate, setFilterByVisitDate] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(50);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
@@ -74,6 +76,13 @@ export default function AdminApp() {
     document.addEventListener('fullscreenchange', handleFSChange);
     return () => document.removeEventListener('fullscreenchange', handleFSChange);
   }, []);
+
+  useEffect(() => {
+    if (isReportsOpen) {
+      setReportStartDate(dateFilter);
+      setReportEndDate(dateFilter);
+    }
+  }, [isReportsOpen, dateFilter]);
 
   const toggleTheme = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
@@ -660,43 +669,89 @@ export default function AdminApp() {
   };
 
   const getStats = () => {
+    // Filter allReservations based on report date range
+    const reportData = allReservations.filter(r => {
+      const rDate = r.date;
+      if (!rDate) return false;
+      return rDate >= reportStartDate && rDate <= reportEndDate;
+    });
+
     const stats = {
       status: [
-        { name: 'Confirmadas', value: allReservations.filter(r => r.status === 'confirmed').length, color: '#10b981' },
-        { name: 'Pagadas', value: allReservations.filter(r => r.status === 'paid').length, color: '#06b6d4' },
-        { name: 'Pendientes', value: allReservations.filter(r => r.status === 'pending').length, color: '#f59e0b' },
-        { name: 'Canceladas', value: allReservations.filter(r => r.status === 'cancelled').length, color: '#ef4444' },
-        { name: 'Error', value: allReservations.filter(r => r.status === 'failed').length, color: '#6b7280' },
+        { name: 'Confirmadas', value: reportData.filter(r => r.status === 'confirmed').length, color: '#10b981' },
+        { name: 'Pagadas', value: reportData.filter(r => r.status === 'paid').length, color: '#06b6d4' },
+        { name: 'Pendientes', value: reportData.filter(r => r.status === 'pending').length, color: '#f59e0b' },
+        { name: 'Canceladas', value: reportData.filter(r => r.status === 'cancelled').length, color: '#ef4444' },
+        { name: 'Error', value: reportData.filter(r => r.status === 'failed').length, color: '#6b7280' },
       ],
       tickets: [
-        { name: 'Adultos', value: allReservations.reduce((acc, r) => acc + (r.tickets?.adult || 0), 0) },
-        { name: 'Reducidas', value: allReservations.reduce((acc, r) => acc + (r.tickets?.reduced || 0), 0) },
-        { name: 'Niños Gratis', value: allReservations.reduce((acc, r) => acc + (r.tickets?.childFree || 0), 0) },
+        { name: 'Adultos', value: reportData.reduce((acc, r) => acc + (r.tickets?.adult || 0), 0) },
+        { name: 'Reducidas', value: reportData.reduce((acc, r) => acc + (r.tickets?.reduced || 0), 0) },
+        { name: 'Niños Gratis', value: reportData.reduce((acc, r) => acc + (r.tickets?.childFree || 0), 0) },
       ],
-      revenue: allReservations
+      revenue: reportData
         .filter(r => r.status === 'confirmed' || r.status === 'paid')
         .reduce((acc, r) => acc + (Number(r.totalPrice) || 0), 0),
-      totalVisits: allReservations
+      totalVisits: reportData
         .filter(r => r.status === 'confirmed' || r.status === 'paid')
-        .reduce((acc, r) => acc + (Number(r.totalTickets) || 0), 0)
+        .reduce((acc, r) => acc + (Number(r.totalTickets) || 0), 0),
+      reportData // Expose filtered data for export
     };
     
-    // Daily visitors last 14 days
-    const last14Days = Array.from({ length: 14 }, (_, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      return d.toISOString().split('T')[0];
-    }).reverse();
+    // Trend data for the selected range
+    // If range is too large, we might want to sample or group, but for now we list all days in range
+    const start = new Date(reportStartDate);
+    const end = new Date(reportEndDate);
+    const daysInRange = [];
+    let curr = new Date(start);
+    
+    // Limit to safety (max 60 days for trend visualization to avoid clutter)
+    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays <= 60) {
+      while (curr <= end) {
+        daysInRange.push(curr.toISOString().split('T')[0]);
+        curr.setDate(curr.getDate() + 1);
+      }
+    } else {
+      // If range is huge, just show last 30 days of that range
+      let temp = new Date(end);
+      for(let i=0; i<30; i++) {
+        daysInRange.unshift(temp.toISOString().split('T')[0]);
+        temp.setDate(temp.getDate() - 1);
+      }
+    }
 
-    const dailyData = last14Days.map(date => {
-      const dayRes = allReservations.filter(r => r.date === date && (r.status === 'confirmed' || r.status === 'paid'));
+    const dailyTickData = daysInRange.map(date => {
+      const dayRes = reportData.filter(r => r.date === date && (r.status === 'confirmed' || r.status === 'paid'));
       return {
         date: date.split('-').slice(1).join('/'),
         tickets: dayRes.reduce((acc, r) => acc + (Number(r.totalTickets) || 0), 0)
       };
     });
 
-    return { ...stats, dailyData };
+    return { ...stats, dailyData: dailyTickData };
+  };
+
+  const setReportPeriod = (period: 'today' | 'week' | 'month' | 'total') => {
+    const today = new Date().toISOString().split('T')[0];
+    if (period === 'today') {
+      setReportStartDate(today);
+      setReportEndDate(today);
+    } else if (period === 'week') {
+      const prev = new Date();
+      prev.setDate(prev.getDate() - 7);
+      setReportStartDate(prev.toISOString().split('T')[0]);
+      setReportEndDate(today);
+    } else if (period === 'month') {
+      const prev = new Date();
+      prev.setMonth(prev.getMonth() - 1);
+      setReportStartDate(prev.toISOString().split('T')[0]);
+      setReportEndDate(today);
+    } else if (period === 'total') {
+      setReportStartDate('2024-01-01');
+      setReportEndDate(today);
+    }
   };
 
   const stats = getStats();
@@ -1521,13 +1576,13 @@ export default function AdminApp() {
                 </div>
                 <div className="flex items-center gap-3">
                   <button 
-                    onClick={() => downloadCSV(filteredReservations, `informe_reservas_filtradas_${new Date().toISOString().split('T')[0]}.csv`)}
+                    onClick={() => downloadCSV(stats.reportData, `informe_reservas_${reportStartDate}_al_${reportEndDate}.csv`)}
                     className={`px-4 py-2 text-[10px] uppercase font-bold tracking-widest border transition-all flex items-center gap-2 hover:bg-[#C4A484] hover:text-white ${
                       theme === 'dark' ? 'border-[#C4A484]/30 text-[#C4A484]' : 'border-[#C4A484] text-[#C4A484]'
                     }`}
                   >
                     <Download className="w-4 h-4" />
-                    Exportar CSV
+                    Exportar Rango
                   </button>
                   <button 
                     onClick={() => setIsReportsOpen(false)}
@@ -1541,6 +1596,55 @@ export default function AdminApp() {
               {/* Body */}
               <div className="flex-1 overflow-y-auto p-8 space-y-10 custom-scrollbar">
                 
+                {/* Local Filters */}
+                <div className={`p-4 border rounded-none flex flex-wrap items-center gap-6 transition-colors ${theme === 'dark' ? 'bg-[#0D0D0B] border-[#E5E2D9]/10' : 'bg-gray-50 border-gray-100'}`}>
+                  <div className="flex items-center gap-4">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[9px] uppercase font-bold opacity-40">Desde</span>
+                      <input 
+                        type="date" 
+                        value={reportStartDate}
+                        onChange={(e) => setReportStartDate(e.target.value)}
+                        className={`bg-transparent border-b text-xs focus:outline-none focus:border-[#C4A484] p-1 transition-colors ${theme === 'dark' ? 'border-[#E5E2D9]/20 font-light' : 'border-gray-200'}`}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[9px] uppercase font-bold opacity-40">Hasta</span>
+                      <input 
+                        type="date" 
+                        value={reportEndDate}
+                        onChange={(e) => setReportEndDate(e.target.value)}
+                        className={`bg-transparent border-b text-xs focus:outline-none focus:border-[#C4A484] p-1 transition-colors ${theme === 'dark' ? 'border-[#E5E2D9]/20 font-light' : 'border-gray-200'}`}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 border-l pl-6 border-[#C4A484]/20">
+                    {[
+                      { id: 'today', label: 'Hoy' },
+                      { id: 'week', label: '7 Días' },
+                      { id: 'month', label: '30 Días' },
+                      { id: 'total', label: 'Histórico' }
+                    ].map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => setReportPeriod(p.id as any)}
+                        className={`px-3 py-1.5 text-[9px] uppercase font-bold tracking-widest border transition-all ${
+                          theme === 'dark' 
+                            ? 'border-[#E5E2D9]/10 text-[#E5E2D9]/60 hover:bg-[#C4A484]/10' 
+                            : 'border-gray-200 text-gray-400 hover:bg-gray-100'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="ml-auto text-[10px] font-light opacity-50 uppercase tracking-widest">
+                    {stats.reportData.length} Registros encontrados en este rango
+                  </div>
+                </div>
+
                 {/* Highlights Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {/* Revenue Card */}
