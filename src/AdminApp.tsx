@@ -2,9 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { db, auth, loginWithGoogle, loginWithEmail, logout } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, query, getDocs, doc, getDoc, setDoc, updateDoc, increment, where, onSnapshot, deleteDoc } from 'firebase/firestore';
-import { Calendar, Clock, Ticket, Users, FileText, CheckCircle, Plus, LogOut, Mountain, X, RefreshCw, Info, Ban, AlertCircle, Copy, Mail, Sun, Moon, Globe, Maximize, Minimize } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Calendar, Clock, Ticket, Users, FileText, CheckCircle, Plus, LogOut, Mountain, X, RefreshCw, Info, Ban, AlertCircle, Copy, Mail, Sun, Moon, Globe, Maximize, Minimize, BarChart3, Download, PieChart as PieChartIcon } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { translations } from './translations';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, 
+  ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line 
+} from 'recharts';
 
 export default function AdminApp() {
   const [user, setUser] = useState<User | null>(null);
@@ -24,6 +28,7 @@ export default function AdminApp() {
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isReportsOpen, setIsReportsOpen] = useState(false);
   const [filterByVisitDate, setFilterByVisitDate] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(50);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
@@ -610,6 +615,92 @@ export default function AdminApp() {
     }
   };
 
+  const downloadCSV = (data: any[], filename: string) => {
+    if (data.length === 0) return alert("No hay datos para exportar");
+    
+    // Headers
+    const headers = [
+      'Localizador', 'Fecha Visita', 'Hora', 'Cliente', 'Email', 
+      'Estado', 'Origen', 'Adultos', 'Reducidas', 'Niños Grat.', 
+      'Total Entradas', 'Precio Total', 'Fecha Compra'
+    ];
+    
+    const rows = data.map(r => [
+      r.localizador || '',
+      r.date || '',
+      r.time || '',
+      r.customerName || '',
+      r.customerEmail || '',
+      r.status || '',
+      r.origin || 'online',
+      r.tickets?.adult || 0,
+      r.tickets?.reduced || 0,
+      r.tickets?.childFree || 0,
+      r.totalTickets || 0,
+      r.totalPrice || 0,
+      r.createdAt ? new Date(r.createdAt).toLocaleString() : ''
+    ]);
+    
+    const csvContent = [
+      headers.join(';'),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(';'))
+    ].join('\n');
+    
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  const getStats = () => {
+    const stats = {
+      status: [
+        { name: 'Confirmadas', value: allReservations.filter(r => r.status === 'confirmed').length, color: '#10b981' },
+        { name: 'Pagadas', value: allReservations.filter(r => r.status === 'paid').length, color: '#06b6d4' },
+        { name: 'Pendientes', value: allReservations.filter(r => r.status === 'pending').length, color: '#f59e0b' },
+        { name: 'Canceladas', value: allReservations.filter(r => r.status === 'cancelled').length, color: '#ef4444' },
+        { name: 'Error', value: allReservations.filter(r => r.status === 'failed').length, color: '#6b7280' },
+      ],
+      tickets: [
+        { name: 'Adultos', value: allReservations.reduce((acc, r) => acc + (r.tickets?.adult || 0), 0) },
+        { name: 'Reducidas', value: allReservations.reduce((acc, r) => acc + (r.tickets?.reduced || 0), 0) },
+        { name: 'Niños Gratis', value: allReservations.reduce((acc, r) => acc + (r.tickets?.childFree || 0), 0) },
+      ],
+      revenue: allReservations
+        .filter(r => r.status === 'confirmed' || r.status === 'paid')
+        .reduce((acc, r) => acc + (Number(r.totalPrice) || 0), 0),
+      totalVisits: allReservations
+        .filter(r => r.status === 'confirmed' || r.status === 'paid')
+        .reduce((acc, r) => acc + (Number(r.totalTickets) || 0), 0)
+    };
+    
+    // Daily visitors last 14 days
+    const last14Days = Array.from({ length: 14 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      return d.toISOString().split('T')[0];
+    }).reverse();
+
+    const dailyData = last14Days.map(date => {
+      const dayRes = allReservations.filter(r => r.date === date && (r.status === 'confirmed' || r.status === 'paid'));
+      return {
+        date: date.split('-').slice(1).join('/'),
+        tickets: dayRes.reduce((acc, r) => acc + (Number(r.totalTickets) || 0), 0)
+      };
+    });
+
+    return { ...stats, dailyData };
+  };
+
+  const stats = getStats();
+
   if (loading) return (
     <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${theme === 'dark' ? 'bg-[#0D0D0B] text-[#E5E2D9]' : 'bg-gray-50 text-gray-900'}`}>
       Cargando...
@@ -705,6 +796,8 @@ export default function AdminApp() {
   }
 
   // Aggregate capacities from dayReservations for active dashboard
+  const canSeeReports = ['cinside.info@gmail.com', 'holasolonet@gmail.com'].includes(user?.email || '') || isBypass;
+
   return (
     <div className={`min-h-screen font-sans transition-colors duration-300 ${
       theme === 'dark' ? 'bg-[#0D0D0B] text-[#E5E2D9]' : 'bg-gray-50 text-gray-900'
@@ -725,6 +818,16 @@ export default function AdminApp() {
           
           {/* Mobile Theme Logout */}
           <div className="flex md:hidden items-center gap-2">
+            {canSeeReports && (
+              <button 
+                onClick={() => setIsReportsOpen(true)}
+                className={`p-2 rounded-full transition-all border ${
+                  theme === 'dark' ? 'bg-[#0D0D0B] border-[#E5E2D9]/10 text-[#C4A484]' : 'bg-gray-50 border-gray-200 text-[#C4A484]'
+                }`}
+              >
+                <BarChart3 className="w-5 h-5" />
+              </button>
+            )}
             <button 
               onClick={toggleTheme}
               className={`p-2 rounded-full transition-all border ${
@@ -769,6 +872,21 @@ export default function AdminApp() {
             >
               {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
             </button>
+
+            {canSeeReports && (
+              <button 
+                onClick={() => setIsReportsOpen(true)}
+                className={`px-3 py-1.5 rounded-full border transition-all flex items-center gap-2 shadow-sm ${
+                  theme === 'dark' 
+                    ? 'bg-[#1A1A1A] border-[#C4A484]/20 text-[#C4A484] hover:bg-[#C4A484]/10' 
+                    : 'bg-white border-gray-200 text-[#C4A484] hover:bg-gray-50'
+                }`}
+                title="Informes y Estadísticas"
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span className="hidden lg:inline text-[10px] font-black uppercase tracking-widest">Informes</span>
+              </button>
+            )}
           </div>
 
           <button 
@@ -1377,6 +1495,223 @@ export default function AdminApp() {
           </motion.div>
         </div>
       )}
+      
+      {/* Reports and Analytics Modal */}
+      <AnimatePresence>
+        {isReportsOpen && (
+          <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[70] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className={`w-full max-w-6xl h-[90vh] overflow-hidden flex flex-col border shadow-2xl transition-colors ${
+                theme === 'dark' ? 'bg-[#151513] border-[#C4A484]/30 text-[#E5E2D9]' : 'bg-white border-gray-200 text-gray-900'
+              }`}
+            >
+              {/* Header */}
+              <div className={`p-6 border-b flex items-center justify-between transition-colors ${theme === 'dark' ? 'border-[#E5E2D9]/10' : 'border-gray-100'}`}>
+                <div className="flex items-center gap-4">
+                  <div className="p-2 bg-[#C4A484]/10 rounded-lg">
+                    <BarChart3 className="w-6 h-6 text-[#C4A484]" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-serif">Informes y Estadísticas</h2>
+                    <p className={`text-xs transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>Métricas generales de la temporada</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => downloadCSV(filteredReservations, `informe_reservas_filtradas_${new Date().toISOString().split('T')[0]}.csv`)}
+                    className={`px-4 py-2 text-[10px] uppercase font-bold tracking-widest border transition-all flex items-center gap-2 hover:bg-[#C4A484] hover:text-white ${
+                      theme === 'dark' ? 'border-[#C4A484]/30 text-[#C4A484]' : 'border-[#C4A484] text-[#C4A484]'
+                    }`}
+                  >
+                    <Download className="w-4 h-4" />
+                    Exportar CSV
+                  </button>
+                  <button 
+                    onClick={() => setIsReportsOpen(false)}
+                    className={`p-2 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/40 hover:text-white' : 'text-gray-400 hover:text-gray-900'}`}
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto p-8 space-y-10 custom-scrollbar">
+                
+                {/* Highlights Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {/* Revenue Card */}
+                  <div className={`p-6 border relative overflow-hidden transition-colors ${theme === 'dark' ? 'bg-[#1A1A1A] border-[#E5E2D9]/5' : 'bg-gray-50 border-gray-100 shadow-sm'}`}>
+                    <div className="relative z-10">
+                      <p className={`text-[10px] uppercase font-bold tracking-widest mb-1 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/30' : 'text-gray-400'}`}>Ingresos Totales</p>
+                      <h4 className="text-3xl font-serif text-[#C4A484]">{stats.revenue.toLocaleString()}€</h4>
+                      <p className={`text-[9px] mt-2 opacity-50 uppercase tracking-tight`}>Basado en reservas pagadas/confirmadas</p>
+                    </div>
+                  </div>
+                  
+                  {/* Visitors Card */}
+                  <div className={`p-6 border relative overflow-hidden transition-colors ${theme === 'dark' ? 'bg-[#1A1A1A] border-[#E5E2D9]/5' : 'bg-gray-50 border-gray-100 shadow-sm'}`}>
+                    <div className="relative z-10">
+                      <p className={`text-[10px] uppercase font-bold tracking-widest mb-1 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/30' : 'text-gray-400'}`}>Visitantes Confirmados</p>
+                      <h4 className="text-3xl font-serif text-[#C4A484]">{stats.totalVisits}</h4>
+                      <p className={`text-[9px] mt-2 opacity-50 uppercase tracking-tight`}>Suma de totalTickets de reservas activas</p>
+                    </div>
+                  </div>
+
+                  {/* Confirmed Count */}
+                  <div className={`p-6 border relative overflow-hidden transition-colors ${theme === 'dark' ? 'bg-[#1A1A1A] border-[#E5E2D9]/5' : 'bg-gray-50 border-gray-100 shadow-sm'}`}>
+                    <div className="relative z-10">
+                      <p className={`text-[10px] uppercase font-bold tracking-widest mb-1 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/30' : 'text-gray-400'}`}>Reservas Activas</p>
+                      <h4 className="text-3xl font-serif text-emerald-500">
+                        {allReservations.filter(r => r.status === 'confirmed' || r.status === 'paid').length}
+                      </h4>
+                      <p className={`text-[9px] mt-2 opacity-50 uppercase tracking-tight`}>Excluyendo pendientes y anuladas</p>
+                    </div>
+                  </div>
+
+                  {/* Conversion / Stats */}
+                  <div className={`p-6 border relative overflow-hidden transition-colors ${theme === 'dark' ? 'bg-[#1A1A1A] border-[#E5E2D9]/5' : 'bg-gray-50 border-gray-100 shadow-sm'}`}>
+                    <div className="relative z-10">
+                      <p className={`text-[10px] uppercase font-bold tracking-widest mb-1 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/30' : 'text-gray-400'}`}>Canceladas / Error</p>
+                      <h4 className="text-3xl font-serif text-red-400">
+                        {allReservations.filter(r => r.status === 'cancelled' || r.status === 'failed').length}
+                      </h4>
+                      <p className={`text-[9px] mt-2 opacity-50 uppercase tracking-tight`}>Bajas totales del sistema</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Charts Area */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Daily Visitors Line Chart */}
+                  <div className={`p-8 border min-h-[400px] flex flex-col transition-colors ${theme === 'dark' ? 'bg-[#1A1A1A] border-[#E5E2D9]/5' : 'bg-white border-gray-100 shadow-xl'}`}>
+                    <h3 className="text-sm font-bold uppercase tracking-widest mb-8 border-b pb-4 border-[#C4A484]/10">Tendencia de Visitantes (Últimos 14 días)</h3>
+                    <div className="flex-1 w-full">
+                      <ResponsiveContainer width="100%" height={280}>
+                        <LineChart data={stats.dailyData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#333' : '#eee'} vertical={false} />
+                          <XAxis 
+                            dataKey="date" 
+                            stroke={theme === 'dark' ? '#666' : '#999'} 
+                            fontSize={10} 
+                            tickLine={false} 
+                            axisLine={false} 
+                            dy={10}
+                          />
+                          <YAxis 
+                            stroke={theme === 'dark' ? '#666' : '#999'} 
+                            fontSize={10} 
+                            tickLine={false} 
+                            axisLine={false} 
+                          />
+                          <RechartsTooltip 
+                            contentStyle={{ 
+                              backgroundColor: theme === 'dark' ? '#1A1A1A' : '#fff', 
+                              border: `1px solid ${theme === 'dark' ? '#C4A48433' : '#ddd'}`,
+                              fontSize: '11px' 
+                            }}
+                            itemStyle={{ color: '#C4A484' }}
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="tickets" 
+                            stroke="#C4A484" 
+                            strokeWidth={3} 
+                            dot={{ fill: '#C4A484', strokeWidth: 2, r: 4 }} 
+                            activeDot={{ r: 6, strokeWidth: 0 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Status Breakdown Pie Chart */}
+                  <div className={`p-8 border min-h-[400px] flex flex-col transition-colors ${theme === 'dark' ? 'bg-[#1A1A1A] border-[#E5E2D9]/5' : 'bg-white border-gray-100 shadow-xl'}`}>
+                    <h3 className="text-sm font-bold uppercase tracking-widest mb-8 border-b pb-4 border-[#C4A484]/10">Distribución por Estado</h3>
+                    <div className="flex-1 w-full flex items-center justify-center">
+                      <ResponsiveContainer width="100%" height={280}>
+                        <PieChart>
+                          <Pie
+                            data={stats.status}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={100}
+                            paddingAngle={5}
+                            dataKey="value"
+                            stroke="none"
+                          >
+                            {stats.status.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <RechartsTooltip />
+                          <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Ticket Types Breakdown Bar Chart */}
+                  <div className={`p-8 border min-h-[400px] flex flex-col transition-colors ${theme === 'dark' ? 'bg-[#1A1A1A] border-[#E5E2D9]/5' : 'bg-white border-gray-100 shadow-xl'}`}>
+                    <h3 className="text-sm font-bold uppercase tracking-widest mb-8 border-b pb-4 border-[#C4A484]/10">Tipos de Entradas Vendidas</h3>
+                    <div className="flex-1 w-full">
+                      <ResponsiveContainer width="100%" height={280}>
+                        <BarChart data={stats.tickets} layout="vertical">
+                          <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#333' : '#eee'} horizontal={false} />
+                          <XAxis type="number" stroke={theme === 'dark' ? '#666' : '#999'} fontSize={10} axisLine={false} tickLine={false} />
+                          <YAxis 
+                            dataKey="name" 
+                            type="category" 
+                            stroke={theme === 'dark' ? '#E5E2D9' : '#333'} 
+                            fontSize={10} 
+                            width={100} 
+                            axisLine={false} 
+                            tickLine={false}
+                          />
+                          <RechartsTooltip 
+                             cursor={{fill: 'transparent'}}
+                             contentStyle={{ 
+                               backgroundColor: theme === 'dark' ? '#1A1A1A' : '#fff', 
+                               border: `1px solid ${theme === 'dark' ? '#C4A48433' : '#ddd'}`
+                             }} 
+                          />
+                          <Bar dataKey="value" fill="#C4A484" radius={[0, 4, 4, 0]} barSize={24} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Quick Export Tips */}
+                  <div className={`p-8 border min-h-[400px] flex flex-col justify-center transition-colors ${theme === 'dark' ? 'bg-[#1A1A1A] border-[#C4A484]/10' : 'bg-amber-50 border-amber-100'}`}>
+                    <PieChartIcon className="w-12 h-12 text-[#C4A484] mb-6 opacity-40 mx-auto" />
+                    <h3 className="text-center font-serif text-xl mb-4">Exportación de Datos</h3>
+                    <p className={`text-center text-xs leading-relaxed max-w-sm mx-auto mb-8 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/60' : 'text-gray-600'}`}>
+                      Puedes descargar todos los registros filtrados actualmente en la tabla principal. 
+                      El archivo incluirá desgloses de tickets, precios, localizadores y datos de contacto.
+                    </p>
+                    <div className="flex justify-center gap-4">
+                      <button 
+                        onClick={() => downloadCSV(allReservations, `exportacion_completa_${new Date().toISOString().split('T')[0]}.csv`)}
+                        className="px-6 py-3 bg-[#C4A484] hover:bg-[#A68B6E] text-[#0D0D0B] font-bold uppercase text-[10px] tracking-widest transition-all shadow-lg"
+                      >
+                         Descargar Todo (CSV)
+                      </button>
+                    </div>
+                    <p className={`text-center text-[10px] mt-8 opacity-40 italic`}>
+                      * Los informes son generados en tiempo real con los datos actuales de la base de datos.
+                    </p>
+                  </div>
+                </div>
+
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
