@@ -9,6 +9,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, 
   ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line 
 } from 'recharts';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function AdminApp() {
   const [user, setUser] = useState<User | null>(null);
@@ -31,7 +33,8 @@ export default function AdminApp() {
   const [isReportsOpen, setIsReportsOpen] = useState(false);
   const [reportStartDate, setReportStartDate] = useState(dateFilter);
   const [reportEndDate, setReportEndDate] = useState(dateFilter);
-  const [filterByVisitDate, setFilterByVisitDate] = useState(false);
+  const [reportFilterType, setReportFilterType] = useState<'visit' | 'creation'>('visit');
+  const [filterByVisitDate, setFilterByVisitDate] = useState(true);
   const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(50);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     const saved = localStorage.getItem('crm-theme');
@@ -123,7 +126,7 @@ export default function AdminApp() {
       `Saludos,\n` +
       `Equipo de Gestión - Cuevas de la Peña`
     );
-    window.location.href = `mailto:${r.customerEmail}?subject=${subject}&body=${body}`;
+    window.open(`mailto:${r.customerEmail}?subject=${subject}&body=${body}`, '_blank');
   };
 
   // Status Badge Helper
@@ -268,11 +271,8 @@ export default function AdminApp() {
       // No, mostramos todo lo que coincida con el estado.
       const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
       
-      // 3. Filtro por Fecha de Creación (DÍA ON/OFF)
-      // Normalizamos ambos strings para comparar solo la parte YYYY-MM-DD
-      const rDateFull = r.createdAt ? new Date(r.createdAt).toISOString().split('T')[0] : '';
-      const fDate = dateFilter ? dateFilter.trim() : '';
-      const matchesVisitDate = !filterByVisitDate || rDateFull === fDate;
+      // 3. Filtro por Fecha de Visita (DÍA ON/OFF)
+      const matchesVisitDate = !filterByVisitDate || r.date === dateFilter;
       
       return matchesSearch && matchesStatus && matchesVisitDate;
     })
@@ -598,7 +598,7 @@ export default function AdminApp() {
       `El equipo de Cuevas de Alájar 🌐 cuevasdealajar.com`
     );
 
-    window.location.href = `mailto:${r.customerEmail}?subject=${subject}&body=${body}`;
+    window.open(`mailto:${r.customerEmail}?subject=${subject}&body=${body}`, '_blank');
     
     // Opcionalmente, si estaba en 'paid', lo pasamos a 'confirmed' localmente 
     // pues asumimos que el operario ya lo ha gestionado.
@@ -668,10 +668,67 @@ export default function AdminApp() {
     }
   };
 
+  const downloadPDF = (data: any[], filename: string) => {
+    if (data.length === 0) return alert("No hay datos para exportar");
+    
+    const doc = new jsPDF('l', 'mm', 'a4');
+    
+    // Add title
+    doc.setFontSize(18);
+    doc.text('Informe de Reservas - Monumento Natural Caminito del Rey', 14, 22);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Rango: ${reportStartDate} hasta ${reportEndDate} (Filtrado por ${reportFilterType === 'visit' ? 'Día de Visita' : 'Día de Compra'})`, 14, 30);
+    
+    const headers = [
+      'Loc.', 'Visita', 'Cliente', 'Email', 
+      'Estado', 'Adulto', 'Red.', 'Gratis', 
+      'Total', 'Precio', 'F. Compra'
+    ];
+    
+    const rows = data.map(r => [
+      r.localizador || '',
+      r.date || '',
+      r.customerName || '',
+      r.customerEmail || '',
+      r.status || '',
+      r.tickets?.adult || 0,
+      r.tickets?.reduced || 0,
+      r.tickets?.childFree || 0,
+      r.totalTickets || 0,
+      `${r.totalPrice || 0}€`,
+      r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ''
+    ]);
+
+    autoTable(doc, {
+      head: [headers],
+      body: rows,
+      startY: 40,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [196, 164, 132] }, // #C4A484
+      margin: { top: 40 }
+    });
+
+    doc.save(filename);
+  };
+
   const getStats = () => {
-    // Filter allReservations based on report date range
+    // Filter allReservations based on report date range and type
     const reportData = allReservations.filter(r => {
-      const rDate = r.date;
+      let rDate = '';
+      if (reportFilterType === 'visit') {
+        rDate = r.date || '';
+      } else {
+        // Extraction from createdAt (timestamp)
+        if (r.createdAt) {
+          try {
+            rDate = new Date(r.createdAt).toISOString().split('T')[0];
+          } catch (e) {
+            rDate = '';
+          }
+        }
+      }
+      
       if (!rDate) return false;
       return rDate >= reportStartDate && rDate <= reportEndDate;
     });
@@ -1026,7 +1083,7 @@ export default function AdminApp() {
                     {filterByVisitDate ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
                     {filterByVisitDate ? 'Filtro Registro: ON' : 'Filtro Registro: OFF'}
                   </button>
-                  <Tooltip text="ON: Muestra solo las reservas realizadas EN el día de consulta. OFF: Muestra todas las reservas (o por búsqueda)." />
+                  <Tooltip text="ON: Muestra solo las reservas para el día de visita consultado. OFF: Muestra todas las reservas." />
                 </div>
               </div>
             </div>
@@ -1104,9 +1161,29 @@ export default function AdminApp() {
         {/* Reservations List */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
           <div className="flex flex-col gap-2">
-            <h3 className={`text-sm uppercase tracking-widest font-bold ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>
-              Listado de Registros ({filteredReservations.length})
-            </h3>
+            <div className="flex items-center gap-4">
+              <h3 className={`text-sm uppercase tracking-widest font-bold ${theme === 'dark' ? 'text-[#E5E2D9]/40' : 'text-gray-400'}`}>
+                Listado de Registros ({filteredReservations.length})
+              </h3>
+              <div className="flex items-center gap-2 border-l border-[#C4A484]/20 pl-4 h-4">
+                <button 
+                  onClick={() => downloadCSV(filteredReservations, `listado_reservas_${new Date().toISOString().split('T')[0]}.csv`)}
+                  className={`p-1 rounded transition-colors flex items-center gap-1.5 group ${theme === 'dark' ? 'hover:bg-[#C4A484]/10 text-[#C4A484]/60' : 'hover:bg-[#C4A484]/5 text-[#C4A484]'}`}
+                  title="Exportar listado actual a CSV"
+                >
+                  <Download className="w-3 h-3" />
+                  <span className="text-[8px] font-bold uppercase tracking-widest hidden sm:inline">CSV</span>
+                </button>
+                <button 
+                  onClick={() => downloadPDF(filteredReservations, `listado_reservas_${new Date().toISOString().split('T')[0]}.pdf`)}
+                  className={`p-1 rounded transition-colors flex items-center gap-1.5 group ${theme === 'dark' ? 'hover:bg-[#C4A484]/10 text-[#C4A484]/60' : 'hover:bg-[#C4A484]/5 text-[#C4A484]'}`}
+                  title="Exportar listado actual a PDF"
+                >
+                  <FileText className="w-3 h-3" />
+                  <span className="text-[8px] font-bold uppercase tracking-widest hidden sm:inline">PDF</span>
+                </button>
+              </div>
+            </div>
             <div className="flex items-center gap-2">
               <span className={`text-[10px] uppercase tracking-widest font-bold ${theme === 'dark' ? 'text-[#E5E2D9]/30' : 'text-gray-400'}`}>Mostrar:</span>
               <div className={`inline-flex rounded border transition-colors ${theme === 'dark' ? 'border-[#E5E2D9]/10' : 'border-gray-200'}`}>
@@ -1582,7 +1659,16 @@ export default function AdminApp() {
                     }`}
                   >
                     <Download className="w-4 h-4" />
-                    Exportar Rango
+                    CSV
+                  </button>
+                  <button 
+                    onClick={() => downloadPDF(stats.reportData, `informe_reservas_${reportStartDate}_al_${reportEndDate}.pdf`)}
+                    className={`px-4 py-2 text-[10px] uppercase font-bold tracking-widest border transition-all flex items-center gap-2 hover:bg-[#C4A484] hover:text-white ${
+                      theme === 'dark' ? 'border-[#C4A484]/30 text-[#C4A484]' : 'border-[#C4A484] text-[#C4A484]'
+                    }`}
+                  >
+                    <FileText className="w-4 h-4" />
+                    PDF
                   </button>
                   <button 
                     onClick={() => setIsReportsOpen(false)}
@@ -1598,6 +1684,24 @@ export default function AdminApp() {
                 
                 {/* Local Filters */}
                 <div className={`p-4 border rounded-none flex flex-wrap items-center gap-6 transition-colors ${theme === 'dark' ? 'bg-[#0D0D0B] border-[#E5E2D9]/10' : 'bg-gray-50 border-gray-100'}`}>
+                  <div className="flex flex-col gap-1 pr-6 border-r border-[#C4A484]/20">
+                    <span className="text-[9px] uppercase font-bold opacity-40">Filtrar por</span>
+                    <div className="flex bg-[#C4A484]/5 p-0.5 border border-[#C4A484]/20">
+                      <button 
+                        onClick={() => setReportFilterType('visit')}
+                        className={`px-3 py-1.5 text-[9px] uppercase font-bold tracking-tight transition-all ${reportFilterType === 'visit' ? 'bg-[#C4A484] text-[#0D0D0B]' : 'text-[#C4A484] hover:bg-[#C4A484]/10'}`}
+                      >
+                        Día de Visita
+                      </button>
+                      <button 
+                        onClick={() => setReportFilterType('creation')}
+                        className={`px-3 py-1.5 text-[9px] uppercase font-bold tracking-tight transition-all ${reportFilterType === 'creation' ? 'bg-[#C4A484] text-[#0D0D0B]' : 'text-[#C4A484] hover:bg-[#C4A484]/10'}`}
+                      >
+                        Día de Compra
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="flex items-center gap-4">
                     <div className="flex flex-col gap-1">
                       <span className="text-[9px] uppercase font-bold opacity-40">Desde</span>
@@ -1800,9 +1904,17 @@ export default function AdminApp() {
                     <div className="flex justify-center gap-4">
                       <button 
                         onClick={() => downloadCSV(allReservations, `exportacion_completa_${new Date().toISOString().split('T')[0]}.csv`)}
-                        className="px-6 py-3 bg-[#C4A484] hover:bg-[#A68B6E] text-[#0D0D0B] font-bold uppercase text-[10px] tracking-widest transition-all shadow-lg"
+                        className="px-6 py-3 bg-[#C4A484] hover:bg-[#A68B6E] text-[#0D0D0B] font-bold uppercase text-[10px] tracking-widest transition-all shadow-lg flex items-center gap-2"
                       >
-                         Descargar Todo (CSV)
+                         <Download className="w-4 h-4" />
+                         Descargar CSV
+                      </button>
+                      <button 
+                        onClick={() => downloadPDF(allReservations, `exportacion_completa_${new Date().toISOString().split('T')[0]}.pdf`)}
+                        className="px-6 py-3 border border-[#C4A484] text-[#C4A484] hover:bg-[#C4A484] hover:text-[#0D0D0B] font-bold uppercase text-[10px] tracking-widest transition-all shadow-lg flex items-center gap-2"
+                      >
+                         <FileText className="w-4 h-4" />
+                         Descargar PDF
                       </button>
                     </div>
                     <p className={`text-center text-[10px] mt-8 opacity-40 italic`}>
