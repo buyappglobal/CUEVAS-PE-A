@@ -281,18 +281,17 @@ app.post(['/api/ask-gemini', '/ask-gemini'], async (req, res) => {
     }
     
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+    const response = await ai.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent({
       contents: `Eres un asistente inteligente para el CRM de reservas. Basado en estos datos de reservas, responde a la consulta del usuario.
       Datos actuales: ${JSON.stringify(context)}
       Consulta: ${prompt}`,
     });
     
     // Log response structure to debug
-    console.log('Gemini raw response:', JSON.stringify(response, null, 2));
+    console.log('Gemini raw response keys:', Object.keys(response || {}));
 
-    // Some SDK versions require response.text() as a function
-    const text = typeof response.text === 'function' ? await response.text() : response.text;
+    // The @google/genai SDK often returns the text via this path:
+    const text = response.text() || "No se ha recibido respuesta";
     
     res.json({ text });
   } catch (error: any) {
