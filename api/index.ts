@@ -274,7 +274,13 @@ app.post(['/api/redsys-webhook', '/redsys-webhook'], async (req, res) => {
 app.post(['/api/ask-gemini', '/ask-gemini'], async (req, res) => {
   try {
     const { prompt, context } = req.body;
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+    
+    if (!process.env.GEMINI_API_KEY) {
+      console.error('❌ GEMINI_API_KEY missing in environment variables');
+      return res.status(500).json({ error: 'Configuración faltante: API Key no definida' });
+    }
+    
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-1.5-flash",
       contents: `Eres un asistente inteligente para el CRM de reservas. Basado en estos datos de reservas, responde a la consulta del usuario.
