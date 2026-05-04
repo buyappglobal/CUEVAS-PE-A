@@ -282,7 +282,7 @@ app.post(['/api/ask-gemini', '/ask-gemini'], async (req, res) => {
     
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-1.5-flash-002",
       contents: `Eres un asistente inteligente para el CRM de reservas. Basado en estos datos de reservas, responde a la consulta del usuario.
       Datos actuales: ${JSON.stringify(context)}
       Consulta: ${prompt}`,
