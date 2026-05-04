@@ -1,6 +1,6 @@
 import express from 'express';
 import 'dotenv/config';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import crypto from 'crypto';
 import path from 'path';
 import cors from 'cors';
@@ -280,13 +280,15 @@ app.post(['/api/ask-gemini', '/ask-gemini'], async (req, res) => {
       return res.status(500).json({ error: 'Configuración faltante: API Key no definida' });
     }
     
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const result = await model.generateContent(`Eres un asistente inteligente para el CRM de reservas. Basado en estos datos de reservas, responde a la consulta del usuario.
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Eres un asistente inteligente para el CRM de reservas. Basado en estos datos de reservas, responde a la consulta del usuario.
       Datos actuales: ${JSON.stringify(context)}
-      Consulta: ${prompt}`);
+      Consulta: ${prompt}`,
+    });
     
-    const text = result.response.text();
+    const text = response.text; // Use property, not method
     
     res.json({ text });
   } catch (error: any) {
