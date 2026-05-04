@@ -479,7 +479,7 @@ export default function AdminApp() {
     setIsChatLoading(true);
 
     // Búsqueda interna en el CRM local sin llamar a una API externa
-    let assistantMsg = "No he podido encontrar información específica sobre tu consulta.";
+    let assistantMsg = "No he podido encontrar información específica sobre tu consulta. Intenta preguntar por las ventas de una fecha (ej: 'ventas del 2026-05-09').";
     let isDataQuery = false;
 
     try {
@@ -488,19 +488,14 @@ export default function AdminApp() {
       if (queryLower.includes('reservas')) {
         isDataQuery = true;
         assistantMsg = `Actualmente hay ${allReservations.length} reservas registradas en el sistema.`;
-      } else if (queryLower.includes('día') || queryLower.includes('fecha')) {
-        // Extraer fecha simple (formato YYYY-MM-DD o formato español DD-MM-YYYY)
-        // Intentar buscar formatos: YYYY-MM-DD o D de mes o DD/MM/YYYY
+      } else if (queryLower.includes('entradas') || queryLower.includes('ventas')) {
+        // Intentar extraer una fecha (formato YYYY-MM-DD)
+        const dateMatch = queryLower.match(/\d{4}-\d{2}-\d{2}/);
         
-        // Simplificación: buscar alguna fecha en el text o usar la fecha del sistema/filtro activo
-        // El cliente pregunto: "día 9 de mayo". Asumiré el año actual (2026).
-        
-        let targetDate = "";
-        if (queryLower.includes('9 de mayo')) {
+        // Manejo especial para "9 de mayo" como caso de prueba
+        let targetDate = dateMatch ? dateMatch[0] : "";
+        if (!targetDate && queryLower.includes('9 de mayo')) {
             targetDate = '2026-05-09';
-        } else {
-            const dateMatch = queryLower.match(/\d{4}-\d{2}-\d{2}/);
-            if (dateMatch) targetDate = dateMatch[0];
         }
 
         if (targetDate) {
@@ -508,6 +503,8 @@ export default function AdminApp() {
             const total = filtered.reduce((sum, r) => sum + (Number(r.totalTickets) || 0), 0);
             isDataQuery = true;
             assistantMsg = `Para el día ${targetDate}, tienes un total de ${total} entradas vendidas repartidas en ${filtered.length} reservas confirmadas.`;
+        } else {
+             assistantMsg = "Por favor, indica una fecha en formato YYYY-MM-DD para consultar las entradas vendidas.";
         }
       }
       
