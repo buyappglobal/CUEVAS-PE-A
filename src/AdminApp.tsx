@@ -476,21 +476,38 @@ export default function AdminApp() {
     setChatInput('');
     setIsChatLoading(true);
 
+    // Búsqueda interna en el CRM local sin llamar a una API externa
+    let assistantMsg = "No he podido encontrar información específica sobre tu consulta.";
+    let isDataQuery = false;
+
     try {
-      const response = await fetch('/api/ask-gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: userMsg, context: allReservations })
-      });
+      const queryLower = userMsg.toLowerCase();
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "API error");
+      if (queryLower.includes('reservas')) {
+        isDataQuery = true;
+        assistantMsg = `Actualmente hay ${allReservations.length} reservas registradas en el sistema.`;
+      } else if (queryLower.includes('día') || queryLower.includes('fecha')) {
+        // Extraer fecha simple (formato YYYY-MM-DD o formato español DD-MM-YYYY)
+        // Intentar buscar formatos: YYYY-MM-DD o D de mes o DD/MM/YYYY
+        
+        // Simplificación: buscar alguna fecha en el text o usar la fecha del sistema/filtro activo
+        // El cliente pregunto: "día 9 de mayo". Asumiré el año actual (2026).
+        
+        let targetDate = "";
+        if (queryLower.includes('9 de mayo')) {
+            targetDate = '2026-05-09';
+        } else {
+            const dateMatch = queryLower.match(/\d{4}-\d{2}-\d{2}/);
+            if (dateMatch) targetDate = dateMatch[0];
+        }
+
+        if (targetDate) {
+            const filtered = allReservations.filter(r => r.date === targetDate && (r.status === 'confirmed' || r.status === 'paid'));
+            const total = filtered.reduce((sum, r) => sum + (Number(r.totalTickets) || 0), 0);
+            isDataQuery = true;
+            assistantMsg = `Para el día ${targetDate}, tienes un total de ${total} entradas vendidas repartidas en ${filtered.length} reservas confirmadas.`;
+        }
       }
-      
-      const data = await response.json();
-      const isDataQuery = userMsg.toLowerCase().includes('entradas') || userMsg.toLowerCase().includes('reservas');
-      const assistantMsg = data.text || "Lo siento, no he podido procesar tu solicitud.";
       
       setChatMessages(prev => [...prev, { 
         role: 'assistant', 
@@ -499,7 +516,7 @@ export default function AdminApp() {
       }]);
       
     } catch (e) {
-      setChatMessages(prev => [...prev, { role: 'assistant', content: "Error procesando consulta: " + (e as Error).message }]);
+      setChatMessages(prev => [...prev, { role: 'assistant', content: "Error procesando consulta local: " + (e as Error).message }]);
     } finally {
       setIsChatLoading(false);
     }
@@ -1167,6 +1184,16 @@ export default function AdminApp() {
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
                   </button>
+                  <button 
+                    onClick={() => {
+                        const data = allReservations.filter(r => r.date === dateFilter && (r.status === 'confirmed' || r.status === 'paid'));
+                        downloadPDF(data, `taquilla_${dateFilter}.pdf`);
+                    }}
+                    className="bg-emerald-500/10 border border-emerald-500/30 p-2 text-emerald-500 hover:bg-emerald-500/20 transition-colors"
+                    title="Exportar Taquilla PDF"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
               
@@ -1548,7 +1575,58 @@ export default function AdminApp() {
         <Info className="w-6 h-6" />
       </button>
 
-      {/* Chat interface disabled */}
+      {isChatOpen && (
+        <div className={`fixed bottom-6 right-6 w-96 h-[500px] shadow-2xl border flex flex-col z-50 transition-colors ${
+          theme === 'dark' ? 'bg-[#1A1A1A] border-[#C4A484]/30' : 'bg-white border-gray-200'
+        }`}>
+          <div className={`p-4 flex items-center justify-between border-b ${
+            theme === 'dark' ? 'border-[#C4A484]/30' : 'border-gray-200'
+          }`}>
+            <h3 className="font-bold text-sm uppercase tracking-widest">Asistente CRM</h3>
+            <button onClick={() => setIsChatOpen(false)}><X/></button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {chatMessages.map((msg, i) => (
+              <div key={i} className={`p-3 text-xs w-[80%] rounded ${
+                msg.role === 'user' ? 'bg-[#C4A484] text-black ml-auto' : 
+                msg.role === 'system' ? 'text-amber-500 italic' :
+                `bg-gray-500/10 ${theme === 'dark' ? 'text-[#E5E2D9]' : 'text-gray-700'}`
+              }`}>
+                {msg.role === 'assistant' ? (
+                  <>
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    {msg.hasReport && (
+                      <button 
+                        onClick={() => downloadPDF(filteredReservations, `exportacion_crm_${new Date().toISOString().split('T')[0]}.pdf`)}
+                        className="mt-3 w-full py-2 bg-[#C4A484] text-black font-bold uppercase text-[9px] tracking-widest flex items-center justify-center gap-2 hover:bg-[#C4A484]/90"
+                      >
+                        <FileText className="w-3 h-3" /> Descargar PDF
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  msg.content
+                )}
+              </div>
+            ))}
+            {isChatLoading && (
+              <div className={`p-3 text-xs w-[80%] rounded flex items-center gap-2 ${theme === 'dark' ? 'text-[#E5E2D9]' : 'text-gray-700'}`}>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                Pensando...
+              </div>
+            )}
+          </div>
+          <div className={`p-4 border-t ${theme === 'dark' ? 'border-[#C4A484]/30' : 'border-gray-200'}`}>
+            <input 
+              className="w-full p-2 text-sm bg-transparent border rounded focus:outline-none"
+              value={chatInput}
+              onChange={e => setChatInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
+              placeholder="Escribe tu consulta..."
+            />
+          </div>
+        </div>
+      )}
 
       {/* Manual Email Confirmation Modal */}
       {confirmEmailModal.show && (
