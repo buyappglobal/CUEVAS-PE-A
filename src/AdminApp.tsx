@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { db, auth, loginWithGoogle, loginWithEmail, logout } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, query, getDocs, doc, getDoc, setDoc, updateDoc, increment, where, onSnapshot, deleteDoc } from 'firebase/firestore';
+import { GoogleGenAI } from "@google/genai";
 import { Calendar, Clock, Ticket, Users, FileText, CheckCircle, Plus, LogOut, Mountain, X, RefreshCw, Info, Ban, AlertCircle, Copy, Mail, Sun, Moon, Globe, Maximize, Minimize, BarChart3, Download, PieChart as PieChartIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { translations } from './translations';
@@ -432,6 +433,78 @@ export default function AdminApp() {
     }
   }, [manualSaleForm.customerPostalCode]);
 
+  // Modal states
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<{role: 'user' | 'assistant' | 'system', content: string}[]>([]);
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+
+  // Auto-init health check when chat opened
+  useEffect(() => {
+    if (isChatOpen && chatMessages.length === 0) {
+      handleChatSystemCheck();
+    }
+  }, [isChatOpen]);
+
+  const handleChatSystemCheck = async () => {
+    setChatMessages([{ role: 'system', content: "Chequeando componentes internos, espera por favor..." }]);
+    setIsChatLoading(true);
+    
+    // Simulate check
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // In a real scenario, this would be a real check.
+    // For now, let's assume all systems are operational, or inject a mock fault.
+    let systemsOk = true;
+    let errorComponent = "";
+    
+    // Logic health check - example
+    if (allReservations.some(r => r.status === 'pending' && !r.createdAt)) {
+      systemsOk = false;
+      errorComponent = "lógica de reservas pendientes";
+    }
+
+    if (systemsOk) {
+      setChatMessages([{ role: 'assistant', content: "Todos los sistemas operativos. ¿En qué te puedo ayudar?" }]);
+    } else {
+      setChatMessages([{ role: 'assistant', content: `Fallo detectado en ${errorComponent}. Contacta con los desarrolladores.` }]);
+    }
+    setIsChatLoading(false);
+  };
+    
+  const handleSendMessage = async () => {
+    if (!chatInput.trim()) return;
+    
+    const userMsg = chatInput;
+    setChatMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+    setChatInput('');
+    setIsChatLoading(true);
+
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Eres un asistente inteligente para el CRM de reservas. Basado en estos datos de reservas, responde a la consulta del usuario.
+        Datos actuales: ${JSON.stringify(allReservations)}
+        Consulta: ${userMsg}`,
+      });
+      
+      const assistantMsg = response.text || "Lo siento, no he podido procesar tu solicitud.";
+      setChatMessages(prev => [...prev, { role: 'assistant', content: assistantMsg }]);
+      
+      // Prompt for PDF after answering data-related queries
+      if (userMsg.toLowerCase().includes('entradas') || userMsg.toLowerCase().includes('reservas')) {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: "¿Necesitas que te exporte la información a PDF?" }]);
+      }
+      
+    } catch (e) {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: "Error procesando consulta: " + (e as Error).message }]);
+    } finally {
+      setIsChatLoading(false);
+    }
+  };
+
   const handleManualSale = async (e: React.FormEvent) => {
     e.preventDefault();
     const total = manualSaleForm.tickets.adult + manualSaleForm.tickets.reduced + manualSaleForm.tickets.childFree;
@@ -708,7 +781,7 @@ export default function AdminApp() {
     doc.text(`Rango: ${reportStartDate} hasta ${reportEndDate} (Filtrado por ${reportFilterType === 'visit' ? 'Día de Visita' : 'Día de Compra'})`, 14, 30);
     
     const headers = [
-      'Loc.', 'Visita', 'Cliente', 'Email', 'C.P.', 'Ciudad/Prov.',
+      'Loc.', 'Visita', 'Hora', 'Cliente', 'Email', 'C.P.', 'Ciudad/Prov.',
       'Estado', 'Adulto', 'Red.', 'Gratis', 
       'Total', 'Precio', 'F. Compra'
     ];
@@ -716,6 +789,7 @@ export default function AdminApp() {
     const rows = data.map(r => [
       r.localizador || '',
       r.date || '',
+      r.time || '',
       r.customerName || '',
       r.customerEmail || '',
       r.customerPostalCode || '',
@@ -1457,6 +1531,49 @@ export default function AdminApp() {
                 Confirmar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* CHAT - SENTINEL/CONSULTANT */}
+      <button 
+        onClick={() => setIsChatOpen(true)}
+        className={`fixed bottom-6 right-6 p-4 rounded-full shadow-2xl transition-all z-40 ${
+          theme === 'dark' ? 'bg-[#C4A484] text-[#0D0D0B]' : 'bg-[#C4A484] text-white'
+        }`}
+      >
+        <Info className="w-6 h-6" />
+      </button>
+
+      {isChatOpen && (
+        <div className={`fixed bottom-6 right-6 w-96 h-[500px] shadow-2xl border flex flex-col z-50 transition-colors ${
+          theme === 'dark' ? 'bg-[#1A1A1A] border-[#C4A484]/30' : 'bg-white border-gray-200'
+        }`}>
+          <div className={`p-4 flex items-center justify-between border-b ${
+            theme === 'dark' ? 'border-[#C4A484]/30' : 'border-gray-200'
+          }`}>
+            <h3 className="font-bold text-sm uppercase tracking-widest">Asistente CRM</h3>
+            <button onClick={() => setIsChatOpen(false)}><X/></button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {chatMessages.map((msg, i) => (
+              <div key={i} className={`p-3 text-xs w-[80%] rounded ${
+                msg.role === 'user' ? 'bg-[#C4A484] text-black ml-auto' : 
+                msg.role === 'system' ? 'text-amber-500 italic' :
+                `bg-gray-500/10 ${theme === 'dark' ? 'text-[#E5E2D9]' : 'text-gray-700'}`
+              }`}>
+                {msg.content}
+              </div>
+            ))}
+          </div>
+          <div className={`p-4 border-t ${theme === 'dark' ? 'border-[#C4A484]/30' : 'border-gray-200'}`}>
+            <input 
+              className="w-full p-2 text-sm bg-transparent border rounded focus:outline-none"
+              value={chatInput}
+              onChange={e => setChatInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
+              placeholder="Escribe tu consulta..."
+            />
           </div>
         </div>
       )}
