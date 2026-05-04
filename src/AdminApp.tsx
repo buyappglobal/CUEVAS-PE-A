@@ -442,7 +442,9 @@ export default function AdminApp() {
   // Auto-init health check when chat opened
   useEffect(() => {
     if (isChatOpen && chatMessages.length === 0) {
-      handleChatSystemCheck();
+      handleChatSystemCheck().then(message => {
+        setChatMessages([{ role: 'assistant', content: message }]);
+      });
     }
   }, [isChatOpen]);
 
