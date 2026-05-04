@@ -282,8 +282,8 @@ app.post(['/api/ask-gemini', '/ask-gemini'], async (req, res) => {
     });
     res.json({ text: response.text });
   } catch (error: any) {
-    console.error('Error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error gemini-ask:', error);
+    res.status(500).json({ error: error.message || 'Error técnico al contactar al asistente' });
   }
 });
 

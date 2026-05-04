@@ -4,6 +4,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, query, getDocs, doc, getDoc, setDoc, updateDoc, increment, where, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { Calendar, Clock, Ticket, Users, FileText, CheckCircle, Plus, LogOut, Mountain, X, RefreshCw, Info, Ban, AlertCircle, Copy, Mail, Sun, Moon, Globe, Maximize, Minimize, BarChart3, Download, PieChart as PieChartIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import ReactMarkdown from 'react-markdown';
 import { translations } from './translations';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, 
@@ -1561,9 +1562,29 @@ export default function AdminApp() {
                 msg.role === 'system' ? 'text-amber-500 italic' :
                 `bg-gray-500/10 ${theme === 'dark' ? 'text-[#E5E2D9]' : 'text-gray-700'}`
               }`}>
-                {msg.content}
+                {msg.role === 'assistant' ? (
+                  <>
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    {msg.content.includes("¿Necesitas que te exporte") && (
+                      <button 
+                        onClick={() => downloadPDF(filteredReservations, `exportacion_crm_${new Date().toISOString().split('T')[0]}.pdf`)}
+                        className="mt-3 w-full py-2 bg-[#C4A484] text-black font-bold uppercase text-[9px] tracking-widest flex items-center justify-center gap-2 hover:bg-[#C4A484]/90"
+                      >
+                        <FileText className="w-3 h-3" /> Descargar PDF
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  msg.content
+                )}
               </div>
             ))}
+            {isChatLoading && (
+              <div className={`p-3 text-xs w-[80%] rounded flex items-center gap-2 ${theme === 'dark' ? 'text-[#E5E2D9]' : 'text-gray-700'}`}>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                Pensando...
+              </div>
+            )}
           </div>
           <div className={`p-4 border-t ${theme === 'dark' ? 'border-[#C4A484]/30' : 'border-gray-200'}`}>
             <input 
