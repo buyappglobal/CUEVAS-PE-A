@@ -1,4 +1,5 @@
 import express from 'express';
+import { GoogleGenAI } from "@google/genai";
 import crypto from 'crypto';
 import path from 'path';
 import cors from 'cors';
@@ -266,6 +267,23 @@ app.post(['/api/redsys-webhook', '/redsys-webhook'], async (req, res) => {
   } catch (err) {
     console.error("🔥 Webhook error:", err);
     res.status(200).send("OK-ERR");
+  }
+});
+
+app.post(['/api/ask-gemini', '/ask-gemini'], async (req, res) => {
+  try {
+    const { prompt, context } = req.body;
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+    const response = await ai.models.generateContent({
+      model: "gemini-1.5-flash",
+      contents: `Eres un asistente inteligente para el CRM de reservas. Basado en estos datos de reservas, responde a la consulta del usuario.
+      Datos actuales: ${JSON.stringify(context)}
+      Consulta: ${prompt}`,
+    });
+    res.json({ text: response.text });
+  } catch (error: any) {
+    console.error('Error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

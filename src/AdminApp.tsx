@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { db, auth, loginWithGoogle, loginWithEmail, logout } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, query, getDocs, doc, getDoc, setDoc, updateDoc, increment, where, onSnapshot, deleteDoc } from 'firebase/firestore';
-import { GoogleGenAI } from "@google/genai";
 import { Calendar, Clock, Ticket, Users, FileText, CheckCircle, Plus, LogOut, Mountain, X, RefreshCw, Info, Ban, AlertCircle, Copy, Mail, Sun, Moon, Globe, Maximize, Minimize, BarChart3, Download, PieChart as PieChartIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { translations } from './translations';
@@ -481,16 +480,16 @@ export default function AdminApp() {
     setIsChatLoading(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-      
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `Eres un asistente inteligente para el CRM de reservas. Basado en estos datos de reservas, responde a la consulta del usuario.
-        Datos actuales: ${JSON.stringify(allReservations)}
-        Consulta: ${userMsg}`,
+      const response = await fetch('/api/ask-gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: userMsg, context: allReservations })
       });
       
-      const assistantMsg = response.text || "Lo siento, no he podido procesar tu solicitud.";
+      if (!response.ok) throw new Error("API error");
+      
+      const data = await response.json();
+      const assistantMsg = data.text || "Lo siento, no he podido procesar tu solicitud.";
       setChatMessages(prev => [...prev, { role: 'assistant', content: assistantMsg }]);
       
       // Prompt for PDF after answering data-related queries
