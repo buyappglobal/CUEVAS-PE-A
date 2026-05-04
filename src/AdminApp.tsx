@@ -435,7 +435,7 @@ export default function AdminApp() {
 
   // Modal states
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<{role: 'user' | 'assistant' | 'system', content: string}[]>([]);
+  const [chatMessages, setChatMessages] = useState<{role: 'user' | 'assistant' | 'system', content: string, hasReport?: boolean}[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [chatInput, setChatInput] = useState('');
 
@@ -493,13 +493,14 @@ export default function AdminApp() {
       }
       
       const data = await response.json();
+      const isDataQuery = userMsg.toLowerCase().includes('entradas') || userMsg.toLowerCase().includes('reservas');
       const assistantMsg = data.text || "Lo siento, no he podido procesar tu solicitud.";
-      setChatMessages(prev => [...prev, { role: 'assistant', content: assistantMsg }]);
       
-      // Prompt for PDF after answering data-related queries
-      if (userMsg.toLowerCase().includes('entradas') || userMsg.toLowerCase().includes('reservas')) {
-        setChatMessages(prev => [...prev, { role: 'assistant', content: "¿Necesitas que te exporte la información a PDF?" }]);
-      }
+      setChatMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: assistantMsg,
+        hasReport: isDataQuery
+      }]);
       
     } catch (e) {
       setChatMessages(prev => [...prev, { role: 'assistant', content: "Error procesando consulta: " + (e as Error).message }]);
@@ -1568,7 +1569,7 @@ export default function AdminApp() {
                 {msg.role === 'assistant' ? (
                   <>
                     <ReactMarkdown>{msg.content}</ReactMarkdown>
-                    {msg.content.includes("¿Necesitas que te exporte") && (
+                    {msg.hasReport && (
                       <button 
                         onClick={() => downloadPDF(filteredReservations, `exportacion_crm_${new Date().toISOString().split('T')[0]}.pdf`)}
                         className="mt-3 w-full py-2 bg-[#C4A484] text-black font-bold uppercase text-[9px] tracking-widest flex items-center justify-center gap-2 hover:bg-[#C4A484]/90"
