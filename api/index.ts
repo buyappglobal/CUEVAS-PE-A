@@ -299,7 +299,6 @@ app.post(['/api/ask-gemini', '/ask-gemini'], async (req, res) => {
     console.error('❌ Error gemini-ask (detailed):', {
       message: error.message,
       stack: error.stack,
-      response: error.response?.data
     });
     res.status(500).json({ error: error.message || 'Error técnico al contactar al asistente' });
   }

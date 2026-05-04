@@ -487,7 +487,10 @@ export default function AdminApp() {
         body: JSON.stringify({ prompt: userMsg, context: allReservations })
       });
       
-      if (!response.ok) throw new Error("API error");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "API error");
+      }
       
       const data = await response.json();
       const assistantMsg = data.text || "Lo siento, no he podido procesar tu solicitud.";
