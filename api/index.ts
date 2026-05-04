@@ -287,9 +287,20 @@ app.post(['/api/ask-gemini', '/ask-gemini'], async (req, res) => {
       Datos actuales: ${JSON.stringify(context)}
       Consulta: ${prompt}`,
     });
-    res.json({ text: response.text });
+    
+    // Log response structure to debug
+    console.log('Gemini raw response:', JSON.stringify(response, null, 2));
+
+    // Some SDK versions require response.text() as a function
+    const text = typeof response.text === 'function' ? await response.text() : response.text;
+    
+    res.json({ text });
   } catch (error: any) {
-    console.error('❌ Error gemini-ask:', error);
+    console.error('❌ Error gemini-ask (detailed):', {
+      message: error.message,
+      stack: error.stack,
+      response: error.response?.data
+    });
     res.status(500).json({ error: error.message || 'Error técnico al contactar al asistente' });
   }
 });
