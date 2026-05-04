@@ -1564,10 +1564,7 @@ export default function AdminApp() {
 
       {/* CHAT - SENTINEL/CONSULTANT */}
       <button 
-        onClick={async () => {
-            const message = await handleChatSystemCheck();
-            if (message) alert(message);
-        }}
+        onClick={() => setIsChatOpen(true)}
         className={`fixed bottom-6 right-6 p-4 rounded-full shadow-2xl transition-all z-40 ${
           theme === 'dark' ? 'bg-[#C4A484] text-[#0D0D0B]' : 'bg-[#C4A484] text-white'
         }`}
