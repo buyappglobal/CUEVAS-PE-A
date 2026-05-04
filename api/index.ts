@@ -1,6 +1,6 @@
 import express from 'express';
 import 'dotenv/config';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import crypto from 'crypto';
 import path from 'path';
 import cors from 'cors';
@@ -280,18 +280,13 @@ app.post(['/api/ask-gemini', '/ask-gemini'], async (req, res) => {
       return res.status(500).json({ error: 'Configuración faltante: API Key no definida' });
     }
     
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const response = await ai.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent({
-      contents: `Eres un asistente inteligente para el CRM de reservas. Basado en estos datos de reservas, responde a la consulta del usuario.
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const result = await model.generateContent(`Eres un asistente inteligente para el CRM de reservas. Basado en estos datos de reservas, responde a la consulta del usuario.
       Datos actuales: ${JSON.stringify(context)}
-      Consulta: ${prompt}`,
-    });
+      Consulta: ${prompt}`);
     
-    // Log response structure to debug
-    console.log('Gemini raw response keys:', Object.keys(response || {}));
-
-    // The @google/genai SDK often returns the text via this path:
-    const text = response.text() || "No se ha recibido respuesta";
+    const text = result.response.text();
     
     res.json({ text });
   } catch (error: any) {
