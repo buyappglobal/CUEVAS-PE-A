@@ -435,7 +435,7 @@ export default function AdminApp() {
 
   // Modal states
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<{role: 'user' | 'assistant' | 'system', content: string, hasReport?: boolean}[]>([]);
+  const [chatMessages, setChatMessages] = useState<{role: 'user' | 'assistant' | 'system', content: string, hasReport?: boolean, reportData?: any[]}[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [chatInput, setChatInput] = useState('');
 
@@ -498,8 +498,9 @@ export default function AdminApp() {
             targetDate = '2026-05-09';
         }
 
+        let filtered: any[] = [];
         if (targetDate) {
-            const filtered = allReservations.filter(r => r.date === targetDate && (r.status === 'confirmed' || r.status === 'paid'));
+            filtered = allReservations.filter(r => r.date === targetDate && (r.status === 'confirmed' || r.status === 'paid'));
             const total = filtered.reduce((sum, r) => sum + (Number(r.totalTickets) || 0), 0);
             isDataQuery = true;
             assistantMsg = `Para el día ${targetDate}, tienes un total de ${total} entradas vendidas repartidas en ${filtered.length} reservas confirmadas.`;
@@ -511,7 +512,8 @@ export default function AdminApp() {
       setChatMessages(prev => [...prev, { 
         role: 'assistant', 
         content: assistantMsg,
-        hasReport: isDataQuery
+        hasReport: isDataQuery,
+        reportData: isDataQuery ? filtered : undefined
       }]);
       
     } catch (e) {
@@ -1593,7 +1595,7 @@ export default function AdminApp() {
                     <ReactMarkdown>{msg.content}</ReactMarkdown>
                     {msg.hasReport && (
                       <button 
-                        onClick={() => downloadPDF(filteredReservations, `exportacion_crm_${new Date().toISOString().split('T')[0]}.pdf`)}
+                        onClick={() => downloadPDF(msg.reportData || [], `exportacion_crm_${new Date().toISOString().split('T')[0]}.pdf`)}
                         className="mt-3 w-full py-2 bg-[#C4A484] text-black font-bold uppercase text-[9px] tracking-widest flex items-center justify-center gap-2 hover:bg-[#C4A484]/90"
                       >
                         <FileText className="w-3 h-3" /> Descargar PDF
