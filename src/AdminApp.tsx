@@ -226,7 +226,7 @@ export default function AdminApp() {
           <CheckCircle className="w-5 h-5 lg:w-4 lg:h-4" />
         </button>
       )}
-      {(r.status === 'paid' || r.status === 'confirmed') && (
+      {(r.status === 'paid' || r.status === 'confirmed' || r.status === 'pending') && (
         <div className="flex items-center gap-1">
           <button 
             onClick={() => handleSendManualEmail(r.localizador)}
@@ -244,10 +244,10 @@ export default function AdminApp() {
           </button>
           <button 
             onClick={() => setConfirmInfoEmailModal({ show: true, orderId: r.localizador })}
-            className={`p-1 transition-colors ${theme === 'dark' ? 'text-emerald-600/50 hover:text-emerald-400' : 'text-emerald-500 hover:text-emerald-700'}`}
+            className={`p-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`}
             title="Enviar Info Visita"
           >
-            <Info className="w-4 h-4 lg:w-3 lg:h-3" />
+            <Info className="w-4 h-4" />
           </button>
         </div>
       )}
@@ -494,6 +494,7 @@ export default function AdminApp() {
     // Búsqueda interna en el CRM local sin llamar a una API externa
     let assistantMsg = "No he podido encontrar información específica sobre tu consulta. Intenta preguntar por las ventas de una fecha (ej: 'ventas del 2026-05-09').";
     let isDataQuery = false;
+    let filtered: any[] = [];
 
     try {
       const queryLower = userMsg.toLowerCase();
@@ -511,7 +512,6 @@ export default function AdminApp() {
             targetDate = '2026-05-09';
         }
 
-        let filtered: any[] = [];
         if (targetDate) {
             filtered = allReservations.filter(r => r.date === targetDate && (r.status === 'confirmed' || r.status === 'paid'));
             const total = filtered.reduce((sum, r) => sum + (Number(r.totalTickets) || 0), 0);
