@@ -695,8 +695,8 @@ export default function App() {
                   ))}
                 </ul>
 
-                <div className="mt-12 pt-8 border-t border-[#E5E2D9]/10">
-                  <p className="text-[#E5E2D9]/40 italic text-sm leading-relaxed">
+                <div className="mt-8">
+                  <p className="text-[#C4A484] font-serif text-lg leading-relaxed">
                     {t('faq.note')}
                   </p>
                 </div>

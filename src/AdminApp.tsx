@@ -24,6 +24,7 @@ export default function AdminApp() {
   const [allReservations, setAllReservations] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [infoEmailFilter, setInfoEmailFilter] = useState<'all' | 'pending' | 'sent'>('all');
   const [dateFilter, setDateFilter] = useState(() => {
     const d = new Date();
     // Obtener YYYY-MM-DD en hora local
@@ -235,11 +236,18 @@ export default function AdminApp() {
             <Mail className="w-5 h-5 lg:w-4 lg:h-4" />
           </button>
           <button 
-            onClick={() => alert("📤 Envío de email vía sistema en desarrollo (Resend). Por favor, use el botón de Mailto para enviar manualmente.")}
-            className={`p-1 transition-colors cursor-help ${theme === 'dark' ? 'text-[#E5E2D9]/20 hover:text-[#C4A484]' : 'text-gray-300 hover:text-[#C4A484]'}`}
-            title="Enviar vía Sistema (En desarrollo)"
+            onClick={() => setConfirmEmailModal({ show: true, orderId: r.localizador })}
+            className={`p-1 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/20 hover:text-[#C4A484]' : 'text-gray-300 hover:text-[#C4A484]'}`}
+            title="Enviar Confirmación vía Sistema"
           >
             <RefreshCw className="w-4 h-4 lg:w-3 lg:h-3" />
+          </button>
+          <button 
+            onClick={() => setConfirmInfoEmailModal({ show: true, orderId: r.localizador })}
+            className={`p-1 transition-colors ${theme === 'dark' ? 'text-emerald-600/50 hover:text-emerald-400' : 'text-emerald-500 hover:text-emerald-700'}`}
+            title="Enviar Info Visita"
+          >
+            <Info className="w-4 h-4 lg:w-3 lg:h-3" />
           </button>
         </div>
       )}
@@ -254,6 +262,7 @@ export default function AdminApp() {
       )}
     </div>
   );
+
 
   const [cancelModal, setCancelModal] = useState<{show: boolean, resId: string | null}>({ show: false, resId: null });
   const [confirmModal, setConfirmModal] = useState<{show: boolean, resId: string | null}>({ show: false, resId: null });
@@ -274,10 +283,14 @@ export default function AdminApp() {
       // No, mostramos todo lo que coincida con el estado.
       const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
       
-      // 3. Filtro por Fecha de Visita (DÍA ON/OFF)
+      // 3. Filtro por Email Informativo
+      const matchesInfoEmail = infoEmailFilter === 'all' || 
+                               (infoEmailFilter === 'sent' ? r.infoEmailSent === true : !r.infoEmailSent);
+      
+      // 4. Filtro por Fecha de Visita (DÍA ON/OFF)
       const matchesVisitDate = !filterByVisitDate || r.date === dateFilter;
       
-      return matchesSearch && matchesStatus && matchesVisitDate;
+      return matchesSearch && matchesStatus && matchesInfoEmail && matchesVisitDate;
     })
     .sort((a, b) => {
       const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -666,6 +679,7 @@ export default function AdminApp() {
   );
 
   const [confirmEmailModal, setConfirmEmailModal] = useState<{ show: boolean, orderId: string }>({ show: false, orderId: '' });
+  const [confirmInfoEmailModal, setConfirmInfoEmailModal] = useState<{ show: boolean, orderId: string }>({ show: false, orderId: '' });
 
   const executeManualEmail = async () => {
     const { orderId } = confirmEmailModal;
@@ -682,6 +696,25 @@ export default function AdminApp() {
         setAllReservations(prev => prev.map(r => r.localizador === orderId ? { ...r, status: 'confirmed' } : r));
       } else {
         alert("❌ Error enviando email.");
+      }
+    } catch (e) {
+      alert("Error: " + (e as Error).message);
+    }
+  };
+
+  const executeInfoEmail = async () => {
+    const { orderId } = confirmInfoEmailModal;
+    setConfirmInfoEmailModal({ show: false, orderId: '' });
+    try {
+      const resp = await fetch('/api/send-info-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, emailContent: (translations as any)[lang].booking.emailSecondConfirmation })
+      });
+      if (resp.ok) {
+        alert("ℹ️ Email de información enviado.");
+      } else {
+        alert("❌ Error enviando email de información.");
       }
     } catch (e) {
       alert("Error: " + (e as Error).message);
@@ -1250,6 +1283,18 @@ export default function AdminApp() {
               <option value="cancelled">🚫 Anulados</option>
             </select>
 
+            <select 
+              value={infoEmailFilter}
+              onChange={(e) => setInfoEmailFilter(e.target.value as any)}
+              className={`border p-3 text-xs focus:border-[#C4A484]/50 focus:outline-none cursor-pointer min-w-[160px] transition-colors ${
+                theme === 'dark' ? 'bg-[#151515] border-[#E5E2D9]/10 text-[#E5E2D9]' : 'bg-white border-gray-200 text-gray-900'
+              }`}
+            >
+              <option value="all">Email Info: Todos</option>
+              <option value="sent">✅ Enviados</option>
+              <option value="pending">⏳ Pendientes</option>
+            </select>
+
             <div className="flex-1"></div>
 
             <button 
@@ -1623,6 +1668,39 @@ export default function AdminApp() {
                 className="py-2 bg-blue-600 hover:bg-blue-500 text-white transition-colors text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-2"
               >
                 Confirmar y Enviar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Info Email Modal */}
+      {confirmInfoEmailModal.show && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
+          <div className={`p-8 max-w-sm w-full text-center shadow-2xl border transition-colors ${
+            theme === 'dark' ? 'bg-[#151515] border-emerald-900/30' : 'bg-white border-emerald-100'
+          }`}>
+            <Info className="w-16 h-16 text-emerald-400 mx-auto mb-4" />
+            <h3 className={`text-xl font-serif mb-2 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]' : 'text-gray-900'}`}>Enviar Información de Visita</h3>
+            
+            <p className={`text-sm mb-6 leading-relaxed transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/70' : 'text-gray-600'}`}>
+              ¿Enviar el email detallado con la información sobre la visita y el funcionamiento de las cuevas al pedido <span className={theme === 'dark' ? 'text-[#E5E2D9]' : 'font-bold'}>#{confirmInfoEmailModal.orderId}</span>?
+            </p>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <button 
+                onClick={() => setConfirmInfoEmailModal({ show: false, orderId: '' })}
+                className={`py-2 border transition-colors text-[10px] uppercase font-bold tracking-wider ${
+                  theme === 'dark' ? 'border-[#E5E2D9]/10 hover:bg-[#E5E2D9]/5' : 'border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                Cerrar
+              </button>
+              <button 
+                onClick={executeInfoEmail}
+                className="py-2 bg-emerald-600 hover:bg-emerald-500 text-white transition-colors text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-2"
+              >
+                Enviar Información
               </button>
             </div>
           </div>
