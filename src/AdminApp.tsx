@@ -226,31 +226,6 @@ export default function AdminApp() {
           <CheckCircle className="w-5 h-5 lg:w-4 lg:h-4" />
         </button>
       )}
-      {(r.status === 'paid' || r.status === 'confirmed' || r.status === 'pending') && (
-        <div className="flex items-center gap-1">
-          <button 
-            onClick={() => handleSendManualEmail(r.localizador)}
-            className={`p-1 transition-colors ${r.status === 'paid' ? 'text-blue-400 hover:text-blue-200 animate-pulse' : 'text-blue-600/50 hover:text-blue-400'}`}
-            title="Abrir Email (Mailto)"
-          >
-            <Mail className="w-5 h-5 lg:w-4 lg:h-4" />
-          </button>
-          <button 
-            onClick={() => setConfirmEmailModal({ show: true, orderId: r.localizador })}
-            className={`p-1 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/20 hover:text-[#C4A484]' : 'text-gray-300 hover:text-[#C4A484]'}`}
-            title="Enviar Confirmación vía Sistema"
-          >
-            <RefreshCw className="w-4 h-4 lg:w-3 lg:h-3" />
-          </button>
-          <button 
-            onClick={() => handleSendInfoManualEmail(r)}
-            className={`p-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`}
-            title="Enviar Info Visita"
-          >
-            <Info className="w-4 h-4" />
-          </button>
-        </div>
-      )}
       {(r.status === 'confirmed' || r.status === 'paid' || r.status === 'pending') && (
         <button 
           onClick={() => setCancelModal({ show: true, resId: r.id })}
@@ -678,52 +653,6 @@ export default function AdminApp() {
     r.date === dateFilter && r.status !== 'cancelled' && r.status !== 'failed'
   );
 
-  const [confirmEmailModal, setConfirmEmailModal] = useState<{ show: boolean, orderId: string }>({ show: false, orderId: '' });
-
-  const executeManualEmail = async () => {
-    const { orderId } = confirmEmailModal;
-    setConfirmEmailModal({ show: false, orderId: '' });
-    try {
-      const resp = await fetch('/api/send-manual-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId })
-      });
-      if (resp.ok) {
-        alert("📧 Email enviado y reserva confirmada en el CRM.");
-        // Refresh local data to reflect the status change
-        setAllReservations(prev => prev.map(r => r.localizador === orderId ? { ...r, status: 'confirmed' } : r));
-      } else {
-        alert("❌ Error enviando email.");
-      }
-    } catch (e) {
-      alert("Error: " + (e as Error).message);
-    }
-  };
-
-  const handleSendInfoManualEmail = (r: any) => {
-    const subject = encodeURIComponent(`ℹ️ Información importante sobre tu visita - Peña de Arias Montano (#${r.localizador})`);
-    const emailContent = (translations as any)[lang].booking.emailSecondConfirmation;
-    const body = encodeURIComponent(emailContent);
-    window.open(`mailto:${r.customerEmail}?subject=${subject}&body=${body}`, '_blank');
-  };
-
-  const handleSendManualEmail = async (orderId: string) => {
-    try {
-      const resp = await fetch('/api/send-manual-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId })
-      });
-      if (resp.ok) {
-        alert("✅ Email enviado correctamente.");
-      } else {
-        alert("❌ Error enviando email.");
-      }
-    } catch (e) {
-      alert("Error: " + (e as Error).message);
-    }
-  };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1600,47 +1529,6 @@ export default function AdminApp() {
       {/* Chat interface completely removed/commented out */}
       {/* {isChatOpen && ( ... )} */}
 
-      {/* Manual Email Confirmation Modal */}
-      {confirmEmailModal.show && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
-          <div className={`p-8 max-w-sm w-full text-center shadow-2xl border transition-colors ${
-            theme === 'dark' ? 'bg-[#151515] border-blue-900/30' : 'bg-white border-blue-100'
-          }`}>
-            <Mail className="w-16 h-16 text-blue-400 mx-auto mb-4" />
-            <h3 className={`text-xl font-serif mb-2 transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]' : 'text-gray-900'}`}>Confirmar Envío de Email</h3>
-            
-            <p className={`text-sm mb-6 leading-relaxed transition-colors ${theme === 'dark' ? 'text-[#E5E2D9]/70' : 'text-gray-600'}`}>
-              ¿Has comprobado primero en el panel de <strong>Redsys</strong> que el pago del pedido <span className={theme === 'dark' ? 'text-[#E5E2D9]' : 'font-bold'}>#{confirmEmailModal.orderId}</span> es correcto?
-            </p>
-            
-            <div className={`border p-4 mb-8 transition-colors ${
-              theme === 'dark' ? 'bg-blue-900/10 border-blue-900/50' : 'bg-blue-50 border-blue-100'
-            }`}>
-              <p className={`text-[10px] flex items-start gap-2 text-left transition-colors ${theme === 'dark' ? 'text-blue-300' : 'text-blue-700'}`}>
-                <Info className="w-4 h-4 flex-shrink-0" />
-                Al confirmar, se enviará el email oficial de reserva al cliente y el estado pasará a <strong>CONFIRMADO</strong> automáticamente en el CRM.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <button 
-                onClick={() => setConfirmEmailModal({ show: false, orderId: '' })}
-                className={`py-2 border transition-colors text-[10px] uppercase font-bold tracking-wider ${
-                  theme === 'dark' ? 'border-[#E5E2D9]/10 hover:bg-[#E5E2D9]/5' : 'border-gray-200 hover:bg-gray-50'
-                }`}
-              >
-                Cerrar
-              </button>
-              <button 
-                onClick={executeManualEmail}
-                className="py-2 bg-blue-600 hover:bg-blue-500 text-white transition-colors text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-2"
-              >
-                Confirmar y Enviar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Cancel Confirmation Modal */}
       {cancelModal.show && (
