@@ -708,39 +708,20 @@ export default function AdminApp() {
     window.open(`mailto:${r.customerEmail}?subject=${subject}&body=${body}`, '_blank');
   };
 
-  const handleSendManualEmail = (orderId: string) => {
-    const r = allReservations.find(res => res.localizador === orderId);
-    if (!r) return;
-
-    const subject = encodeURIComponent(`Reserva Confirmada #${r.localizador} - Cuevas de Alájar`);
-    const body = encodeURIComponent(
-      `Hola, ${r.customerName}:\n\n` +
-      `¡Muchas gracias por tu compra! Te escribimos para confirmar que tu reserva para visitar las Cuevas de Alájar se ha procesado correctamente. Estamos deseando darte la bienvenida y mostrarte la belleza de nuestro entorno.\n\n` +
-      `A continuación, te detallamos los datos de tu reserva:\n\n` +
-      `Nombre a cargo de la reserva: ${r.customerName}\n\n` +
-      `Número de pedido: ${r.localizador}\n\n` +
-      `Fecha y hora de la visita: ${r.date} a las ${r.time}\n\n` +
-      `Nº de entradas: ${r.totalTickets} (Adultos: ${r.tickets?.adult || 0}, Reducidas: ${r.tickets?.reduced || 0}, Niños gratis: ${r.tickets?.childFree || 0})\n\n` +
-      `📌 Información importante para tu visita:\n` +
-      `📍 Punto de encuentro: La visita se inicia en el Centro de Interpretación "Arias Montano", ubicado en la propia Peña. Por favor, acuda allí para validar su reserva y dar comienzo a la actividad.\n\n` +
-      `Entradas: No es necesario que imprimas este correo. Puedes mostrar este mismo email desde tu teléfono móvil en el punto de encuentro al llegar.\n\n` +
-      `Puntualidad: Te recomendamos llegar al menos 15 minutos antes de la hora de tu visita para poder validar tu entrada sin prisas.\n\n` +
-      `Recomendaciones: Recuerda llevar calzado cómodo y ropa adecuada para la temperatura del interior de las cuevas.\n\n` +
-      `📍 ¿Cómo llegar?\n` +
-      `Puedes encontrar nuestra ubicación exacta y opciones de aparcamiento directamente en nuestra web: www.cuevasdealajar.com/ en la parte inferior de la web.\n\n` +
-      `Si tienes alguna pregunta, necesitas modificar tu reserva o requieres asistencia adicional, no dudes en responder a este correo o llamarnos al 671 844 875\n\n` +
-      `¡Te esperamos pronto para vivir una experiencia inolvidable!\n\n` +
-      `Un saludo cordial,\n\n` +
-      `El equipo de Cuevas de Alájar 🌐 cuevasdealajar.com`
-    );
-
-    window.open(`mailto:${r.customerEmail}?subject=${subject}&body=${body}`, '_blank');
-    
-    // Opcionalmente, si estaba en 'paid', lo pasamos a 'confirmed' localmente 
-    // pues asumimos que el operario ya lo ha gestionado.
-    if (r.status === 'paid') {
-      updateDoc(doc(db, 'reservations', r.id), { status: 'confirmed', updatedAt: new Date().toISOString() })
-        .catch(err => console.error("Error confirmando tras email manual:", err));
+  const handleSendManualEmail = async (orderId: string) => {
+    try {
+      const resp = await fetch('/api/send-manual-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId })
+      });
+      if (resp.ok) {
+        alert("✅ Email enviado correctamente.");
+      } else {
+        alert("❌ Error enviando email.");
+      }
+    } catch (e) {
+      alert("Error: " + (e as Error).message);
     }
   };
 
