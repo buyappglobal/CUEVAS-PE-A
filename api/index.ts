@@ -224,8 +224,36 @@ async function sendInfoEmail(orderId: string) {
           <img src="https://solonet.es/wp-content/uploads/2026/04/ICONO-CUEVAS-ALAJAR.png" alt="Logo" style="width: 80px; height: auto;">
         </div>
         <p>Hola <strong>${resData.customerName}</strong>,</p>
-        <p>Te enviamos esta información importante sobre tu próxima visita a las Cuevas de la Peña de Arias Montano.</p>
-        <p><strong>Recordatorio:</strong> Por favor, llega al menos 15 minutos antes de tu hora reservada al Centro de Interpretación.</p>
+
+        <h2 style="color: #C4A484;">ℹ️ ¿En qué consiste tu visita a las Cuevas de Alájar?</h2>
+        <p>La entrada a las Cuevas de Alájar te ofrece una <em>experiencia completa</em> que combina <em>naturaleza, historia y espiritualidad</em> en el corazón de la Peña de Arias Montano. Aquí te detallamos el recorrido paso a paso:</p>
+
+        <h3>1. <strong>Inmersión en el Patrimonio Natural e Histórico</strong></h3>
+        <p>Tu visita comienza explorando el entorno único de la Peña de Arias Montano. Pasearás por un paisaje cargado de simbolismo donde la geología y la historia se dan la mano. Descubrirás por qué este lugar ha sido considerado un punto mágico y sagrado desde hace siglos, disfrutando de las vistas privilegiadas de la Sierra de Aracena y conociendo de primera mano la historia de los monumentos que atesora.</p>
+
+        <h3>2. <strong>El Centro de Interpretación Arias Montano</strong></h3>
+        <p>Para comprender la importancia del humanista Benito Arias Montano y su vínculo con Alájar, la entrada incluye el acceso al Centro de Interpretación. A través de sus contenidos, conocerás la vida del sabio y el contexto histórico de este paraje.</p>
+        <p><em>(Nota informativa: Nuestro Centro de Visitantes principal se encuentra actualmente en fase de mejoras por obras de rehabilitación para ofrecerte pronto un mejor servicio).</em></p>
+
+        <h3>3. <strong>El Santuario de la Reina de los Ángeles</strong></h3>
+        <p>Continuarás el recorrido visitando el Santuario de la Reina de los Ángeles, un edificio emblemático del siglo XVI. Es un lugar de gran devoción popular y belleza arquitectónica que corona la peña, ofreciendo un remanso de paz y unas panorámicas espectaculares del pueblo de Alájar.</p>
+
+        <h3>4. <strong>Exploración de las Cavidades: Un viaje al interior de la tierra</strong></h3>
+        <p>El punto culminante es el acceso a las cavidades naturales que horadan la roca de la Peña. Podrás explorar la Sillita del Rey y la Sima de los Caballos, formaciones fascinantes que revelan el poder de la erosión a lo largo del tiempo.</p>
+
+        <p><strong><em>Nota sobre la Protección de la biodiversidad en "El Palacio Oscuro"</em></strong><br>
+        Dentro del conjunto de cuevas, la cavidad conocida como "El Palacio Oscuro" sigue un régimen especial de visitas. En nuestro firme compromiso con la preservación del ecosistema, esta cueva permanece cerrada al público entre el 30 de marzo y el 30 de septiembre. El motivo es la protección de una colonia de murciélagos que utiliza la cavidad como refugio vital para su ciclo biológico durante estos meses. Respetar su tranquilidad es esencial para la salud de nuestro entorno; por ello, durante este periodo de cierre por conservación, la entrada cuenta con una reducción de 2€ en su precio final.</p>
+
+        <h3>Resumen de tu entrada:</h3>
+        <ul style="list-style: none; padding: 0;">
+            <li>✅ Recorrido guiado/libre por el entorno natural.</li>
+            <li>✅ Cultura: Acceso al Centro de Interpretación.</li>
+            <li>✅ Patrimonio: Visita al Santuario de la Reina de los Ángeles.</li>
+            <li>✅ Aventura: Entrada a las cavidades naturales (Sillita del Rey, Sima de los Caballos y Palacio Oscuro*).</li>
+        </ul>
+
+        <p>❗ Recuerda que <em>si vienes entre marzo y septiembre</em>, tu entrada es más económica para compensar el cierre temporal de El Palacio Oscuro por motivos de <em>protección ambiental</em>.</p>
+
         <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #999;">
           <p>Cuevas de la Peña de Arias Montano - Ayuntamiento de Alájar</p>
           <p>Si tienes alguna pregunta, contacta con nosotros en <a href="mailto:info@cuevasdealajar.com" style="color: #C4A484;">info@cuevasdealajar.com</a></p>
